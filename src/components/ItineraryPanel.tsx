@@ -536,26 +536,28 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                     
                     {!isCompact && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }} onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-icon-only"
-                          style={{ width: '1.25rem', height: '1.25rem', padding: 0 }}
-                          disabled={isFirst}
-                          onClick={() => onReorderItinerary(index, 'up')}
-                          title="Move Up"
-                        >
-                          <ArrowUp size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-icon-only"
-                          style={{ width: '1.25rem', height: '1.25rem', padding: 0 }}
-                          disabled={isLast}
-                          onClick={() => onReorderItinerary(index, 'down')}
-                          title="Move Down"
-                        >
-                          <ArrowDown size={11} />
-                        </button>
+                        {!isFirst && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-icon-only"
+                            style={{ width: '1.25rem', height: '1.25rem', padding: 0 }}
+                            onClick={() => onReorderItinerary(index, 'up')}
+                            title="Move Up"
+                          >
+                            <ArrowUp size={11} />
+                          </button>
+                        )}
+                        {!isLast && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-icon-only"
+                            style={{ width: '1.25rem', height: '1.25rem', padding: 0 }}
+                            onClick={() => onReorderItinerary(index, 'down')}
+                            title="Move Down"
+                          >
+                            <ArrowDown size={11} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -681,10 +683,12 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                               </div>
                             )}
 
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
-                              <span style={{ fontWeight: 600, color: 'var(--accent)' }}>Leave:</span>
-                              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.leave}</span>
-                            </div>
+                            {(isFirst ? isSpendActive : (isLast ? isSpendActive : true)) && (
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--accent)' }}>Leave:</span>
+                                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.leave}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </>
@@ -703,7 +707,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                             {item.durationHours > 0 ? `${item.durationHours}h` : ''}{item.durationMinutes > 0 ? `${item.durationMinutes}m` : ''}
                           </span>
                         )}
-                        {computedTimes[item.id]?.leave && (
+                        {computedTimes[item.id]?.leave && (!isLast || isSpendActive) && (
                           <span className="compact-time-badge" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }}>
                             Leave: {computedTimes[item.id].leave}
                           </span>
