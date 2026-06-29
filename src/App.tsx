@@ -376,6 +376,30 @@ function App() {
     });
   };
 
+  const handleInsertAtItinerary = (locationId: string, insertIndex: number, dayIndex: number) => {
+    updateActiveTrip((trip) => {
+      const day = trip.days[dayIndex];
+      if (!day) return trip;
+      const newItem: ItineraryItem = {
+        id: `itin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        locationId: locationId,
+        durationHours: 1, // Default spend: 1hr
+        durationMinutes: 0,
+        commuteMode: 'driving',
+      };
+      const updatedItinerary = [...day.itinerary];
+      updatedItinerary.splice(insertIndex, 0, newItem);
+
+      const updatedDays = trip.days.map((d, idx) =>
+        idx === dayIndex ? { ...d, itinerary: updatedItinerary } : d
+      );
+      return {
+        ...trip,
+        days: updatedDays,
+      };
+    });
+  };
+
   const handleUpdateDuration = (itemId: string, hours: number, minutes: number) => {
     updateActiveTrip((trip) => {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
@@ -707,6 +731,7 @@ function App() {
               onZoomToTrip={() => zoomToTripRef.current?.()}
               canZoom={savedLocations.length > 0}
               onAddToItinerary={(locId) => handleAddToItinerary(locId, activeDayIndex)}
+              onInsertAtItinerary={(locId, idx) => handleInsertAtItinerary(locId, idx, activeDayIndex)}
             />
           )}
         </div>
