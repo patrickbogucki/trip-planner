@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Trash2, MapPin, Plus, AlertCircle, Calendar, ChevronDown } from 'lucide-react';
 import type { Location, LocationCategory, TripDay } from '../types';
 import { CATEGORIES, getCategory } from '../utils/categories';
+import { areLocationsEquivalent } from '../utils/location';
 
 interface SearchPanelProps {
   savedLocations: Location[];
@@ -178,7 +179,16 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [previewCategory, setPreviewCategory] = useState<LocationCategory>('other');
   
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestRequestIdRef = useRef(0);
+  const suggestAbortRef = useRef<AbortController | null>(null);
+  const detailsRequestIdRef = useRef(0);
+  const detailsAbortRef = useRef<AbortController | null>(null);
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+
+  const getErrorMessage = (err: unknown, fallback: string) => {
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  };
 
   // Generate a random session token for Mapbox Search Box v6 billing optimization
   const [sessionToken] = useState(() => {
@@ -194,12 +204,15 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
 
   // Debounced search query
   useEffect(() => {
+    suggestAbortRef.current?.abort();
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
     if (query.trim().length < 3) {
       setSuggestions([]);
+      setIsLoading(false);
+      setError(null);
       return;
     }
 
@@ -211,10 +224,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setIsLoading(true);
     setError(null);
 
+    const requestId = ++suggestRequestIdRef.current;
     searchTimeoutRef.current = setTimeout(async () => {
+      const abortController = new AbortController();
+      suggestAbortRef.current = abortController;
       try {
         const response = await fetch(
-          `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${mapboxToken}&session_token=${sessionToken}&limit=5`
+          `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${mapboxToken}&session_token=${sessionToken}&limit=5`,
+          { signal: abortController.signal }
         );
 
         if (!response.ok) {
@@ -222,11 +239,16 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         }
 
         const data = await response.json();
+        if (requestId !== suggestRequestIdRef.current) return;
         setSuggestions(data.suggestions || []);
-      } catch (err: any) {
-        setError(err.message || 'Error fetching search results');
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (requestId !== suggestRequestIdRef.current) return;
+        setError(getErrorMessage(err, 'Error fetching search results'));
       } finally {
-        setIsLoading(false);
+        if (requestId === suggestRequestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     }, 600); // 600ms debounce
 
@@ -234,10 +256,15 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
+      suggestAbortRef.current?.abort();
     };
-  }, [query, mapboxToken]);
+  }, [query, mapboxToken, sessionToken]);
 
   const handleSelectSuggestion = async (item: any) => {
+    detailsAbortRef.current?.abort();
+    const requestId = ++detailsRequestIdRef.current;
+    const abortController = new AbortController();
+    detailsAbortRef.current = abortController;
     setIsLoading(true);
     setError(null);
 
@@ -247,7 +274,8 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         : `${item.name}${item.place_formatted ? `, ${item.place_formatted}` : ''}`;
 
       const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${mapboxToken}&limit=1`
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${mapboxToken}&limit=1`,
+        { signal: abortController.signal }
       );
 
       if (!response.ok) {
@@ -269,21 +297,30 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
         lng,
       };
 
+      if (requestId !== detailsRequestIdRef.current) return;
       onSelectLocation(newLoc);
       setQuery('');
       setSuggestions([]);
-    } catch (err: any) {
-      setError(err.message || 'Error retrieving location details.');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (requestId !== detailsRequestIdRef.current) return;
+      setError(getErrorMessage(err, 'Error retrieving location details.'));
     } finally {
-      setIsLoading(false);
+      if (requestId === detailsRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   const isLocationSaved = (lat: number, lng: number) => {
-    // Check if location is already saved within close proximity
-    return savedLocations.some(
-      (loc) => Math.abs(loc.lat - lat) < 0.0001 && Math.abs(loc.lng - lng) < 0.0001
-    );
+    const candidateLocation: Location = {
+      id: 'candidate-location',
+      name: '',
+      displayName: '',
+      lat,
+      lng,
+    };
+    return savedLocations.some((loc) => areLocationsEquivalent(loc, candidateLocation));
   };
 
   return (

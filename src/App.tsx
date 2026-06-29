@@ -5,6 +5,7 @@ import { ItineraryPanel } from './components/ItineraryPanel';
 import { MapComponent } from './components/MapComponent';
 import { TripSelector } from './components/TripSelector';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, Trip, LocationCategory, TripDay } from './types';
+import { areLocationsEquivalent } from './utils/location';
 
 // Mapbox Profile Mapping
 const PROFILE_MAP: Record<string, string> = {
@@ -13,19 +14,34 @@ const PROFILE_MAP: Record<string, string> = {
   bicycle: 'cycling',
 };
 
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException && error.name === 'AbortError';
+
+const parseLocalStorageJson = <T,>(key: string): T | null => {
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    console.error(`Invalid JSON in localStorage key "${key}"`, error);
+    return null;
+  }
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState<'search' | 'itinerary'>('itinerary');
   const [activeLocation, setActiveLocation] = useState<Location | null>(null);
   const [routes, setRoutes] = useState<RouteSegment[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
   const zoomToTripRef = useRef<(() => void) | null>(null);
+  const routeRequestSeqRef = useRef(0);
 
   // Trips and Active Trip state with migration logic
   const [trips, setTrips] = useState<Trip[]>(() => {
-    const localTrips = localStorage.getItem('horizon_trips');
-    if (localTrips) {
-      const parsed: Trip[] = JSON.parse(localTrips);
+    const parsed = parseLocalStorageJson<Trip[]>('horizon_trips');
+    if (parsed) {
       return parsed.map((trip) => {
         if (!trip.days || trip.days.length === 0) {
           return {
@@ -45,12 +61,12 @@ function App() {
     }
 
     // 1. Data Migration: check for legacy single-trip keys
-    const legacySaved = localStorage.getItem('horizon_saved_locations');
-    const legacyItin = localStorage.getItem('horizon_itinerary');
+    const legacySaved = parseLocalStorageJson<Location[]>('horizon_saved_locations');
+    const legacyItin = parseLocalStorageJson<ItineraryItem[]>('horizon_itinerary');
 
     if (legacySaved || legacyItin) {
-      const savedLocations = legacySaved ? JSON.parse(legacySaved) : [];
-      const itinerary = legacyItin ? JSON.parse(legacyItin) : [];
+      const savedLocations = legacySaved || [];
+      const itinerary = legacyItin || [];
 
       const migratedTrip: Trip = {
         id: `trip-migrated-${Date.now()}`,
@@ -103,11 +119,22 @@ function App() {
 
   // Sync to local storage
   useEffect(() => {
-    localStorage.setItem('horizon_trips', JSON.stringify(trips));
+    try {
+      localStorage.setItem('horizon_trips', JSON.stringify(trips));
+      setStorageError(null);
+    } catch (error) {
+      console.error('Failed to persist trips to localStorage', error);
+      setStorageError('Unable to save trip changes locally. Free up browser storage and refresh.');
+    }
   }, [trips]);
 
   useEffect(() => {
-    localStorage.setItem('horizon_active_trip_id', activeTripId);
+    try {
+      localStorage.setItem('horizon_active_trip_id', activeTripId);
+    } catch (error) {
+      console.error('Failed to persist active trip ID to localStorage', error);
+      setStorageError('Unable to save active trip selection locally. Free up browser storage and refresh.');
+    }
   }, [activeTripId]);
 
   // Ensure activeTripId points to a valid trip (safeguard)
@@ -157,6 +184,9 @@ function App() {
       return;
     }
 
+    const requestSeq = ++routeRequestSeqRef.current;
+    const abortController = new AbortController();
+
     const fetchRoutes = async () => {
       setIsLoadingRoutes(true);
       const newRoutes: RouteSegment[] = [];
@@ -192,7 +222,7 @@ function App() {
 
         try {
           if (!mapboxToken) throw new Error('Mapbox token is missing');
-          const res = await fetch(url);
+          const res = await fetch(url, { signal: abortController.signal });
           if (!res.ok) throw new Error('Mapbox Directions routing request failed');
           
           const data = await res.json();
@@ -215,6 +245,9 @@ function App() {
             mode: item.commuteMode,
           };
         } catch (error) {
+          if (isAbortError(error)) {
+            return null;
+          }
           console.warn(`Routing error between ${fromLoc.name} and ${toLoc.name}:`, error);
           const dist = getHaversineDistance(fromLoc.lat, fromLoc.lng, toLoc.lat, toLoc.lng);
           const speed = item.commuteMode === 'walking' ? 1.4 : item.commuteMode === 'bicycle' ? 4.2 : 12.0; // m/s
@@ -237,17 +270,25 @@ function App() {
         if (res) newRoutes.push(res);
       });
 
+      if (requestSeq !== routeRequestSeqRef.current) return;
       setRoutes(newRoutes);
-      setIsLoadingRoutes(false);
     };
 
-    fetchRoutes();
+    fetchRoutes().finally(() => {
+      if (requestSeq === routeRequestSeqRef.current) {
+        setIsLoadingRoutes(false);
+      }
+    });
+
+    return () => {
+      abortController.abort();
+    };
   }, [itinerary, savedLocations]);
 
   // Operations: Saved Pinned Locations
   const handleAddLocation = (loc: Location) => {
     updateActiveTrip((trip) => {
-      if (trip.savedLocations.some((l) => l.lat === loc.lat && l.lng === loc.lng)) return trip;
+      if (trip.savedLocations.some((savedLoc) => areLocationsEquivalent(savedLoc, loc))) return trip;
       return {
         ...trip,
         savedLocations: [...trip.savedLocations, loc],
@@ -467,7 +508,7 @@ function App() {
     if (!targetTrip || targetTrip.days.length <= 1) return;
 
     const targetDay = targetTrip.days[dayIndex];
-    const confirmMsg = `Are you sure you want to remove Day ${targetDay.dayNumber}? Any locations pinned exclusively for this day will be unpinned.`;
+    const confirmMsg = `Are you sure you want to remove Day ${targetDay.dayNumber}? Only this day's schedule will be removed.`;
     
     if (!window.confirm(confirmMsg)) return;
 
@@ -488,21 +529,8 @@ function App() {
             return { ...d, date: dateStr };
           });
 
-          const locationsInDeletedDay = targetDay.itinerary.map((item) => item.locationId);
-          const locationsInRemainingDays = new Set<string>();
-          updatedDays.forEach((d) => {
-            d.itinerary.forEach((item) => locationsInRemainingDays.add(item.locationId));
-          });
-
-          const toUnpin = locationsInDeletedDay.filter((locId) => !locationsInRemainingDays.has(locId));
-
-          const updatedSavedLocations = t.savedLocations.filter(
-            (loc) => !toUnpin.includes(loc.id)
-          );
-
           return {
             ...t,
-            savedLocations: updatedSavedLocations,
             days: updatedDays,
           };
         }
@@ -512,10 +540,13 @@ function App() {
 
     setActiveDayIndex((prev) => {
       const newDaysLength = targetTrip.days.length - 1;
-      if (prev >= newDaysLength) {
-        return Math.max(0, newDaysLength - 1);
+      if (prev === dayIndex) {
+        return Math.min(dayIndex, newDaysLength - 1);
       }
-      return prev;
+      if (prev > dayIndex) {
+        return prev - 1;
+      }
+      return prev < newDaysLength ? prev : Math.max(0, newDaysLength - 1);
     });
   };
 
@@ -577,6 +608,20 @@ function App() {
           </div>
           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>v1.1</span>
         </div>
+
+        {storageError && (
+          <div
+            className="card"
+            style={{
+              margin: '0 1rem 0.5rem',
+              borderLeft: '4px solid var(--danger)',
+              background: 'var(--bg-secondary)',
+              fontSize: '0.8rem',
+            }}
+          >
+            {storageError}
+          </div>
+        )}
 
         {/* Trip Selector Widget */}
         <TripSelector
