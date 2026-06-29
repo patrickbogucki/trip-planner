@@ -1133,15 +1133,69 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
 }
 
-.trip-actions {
+.trip-options-menu-container {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
 }
 
-.trip-btn {
-  width: 2.25rem;
-  height: 2.25rem;
+.trip-menu-trigger-btn {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+}
+
+.trip-actions-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 0.25rem;
+  list-style: none;
+  z-index: 1100;
+  min-width: 135px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.trip-actions-dropdown-menu li {
+  width: 100%;
+}
+
+.trip-actions-dropdown-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.trip-actions-dropdown-menu button:hover:not(:disabled) {
+  background-color: var(--accent-light);
+  color: var(--accent);
+}
+
+.trip-actions-dropdown-menu button.danger-action:hover:not(:disabled) {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+.trip-actions-dropdown-menu button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .trip-action-form {
@@ -1246,9 +1300,8 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  padding: 0 0 0.75rem 0;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 0.75rem;
+  padding: 0;
+  margin-bottom: 0.25rem;
 }
 
 .trip-date-label {
@@ -1635,6 +1688,94 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
   color: var(--text-primary);
   user-select: none;
+}
+
+/* Itinerary Stop Card Menu Styles */
+.card-menu-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.card-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  background: var(--bg-glass);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 0.25rem;
+  list-style: none;
+  z-index: 1200;
+  min-width: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.card-menu-dropdown li {
+  width: 100%;
+}
+
+.card-menu-item-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.card-menu-item-btn:hover {
+  background-color: var(--accent-light);
+  color: var(--accent);
+}
+
+.card-menu-item-btn.danger-action {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.card-menu-item-btn.danger-action:hover {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+/* Compact commute connection line and indicator */
+.itinerary-connection-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.1rem 0 0.1rem 1.25rem;
+  padding: 0 0.25rem;
+}
+
+.itinerary-connection-compact-line {
+  width: 2px;
+  height: 12px;
+  background: var(--border-color);
+  border-radius: 1px;
+}
+
+.itinerary-connection-compact-text {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
 }
 
 /* Mobile responsive styles */

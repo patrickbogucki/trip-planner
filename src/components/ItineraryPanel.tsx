@@ -16,7 +16,8 @@ import {
   X,
   AlignJustify,
   LayoutList,
-  Maximize2
+  Maximize2,
+  MoreVertical
 } from 'lucide-react';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, TripDay } from '../types';
 import { getCategory } from '../utils/categories';
@@ -67,6 +68,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [viewDate, setViewDate] = useState(() => {
     if (tripDate) {
       const [y, m, d] = tripDate.split('-').map(Number);
@@ -86,6 +88,17 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close card action menus on click outside
+  useEffect(() => {
+    const handleDocumentClick = () => {
+      setActiveMenuId(null);
+    };
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
     };
   }, []);
 
@@ -153,12 +166,12 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     });
   };
 
-  // Short label for day tabs: "Jun 5"
+  // Short label for day tabs: "Sun, Jun 5"
   const formatTabDate = (dateStr?: string): string | null => {
     if (!dateStr) return null;
     const [y, m, d] = dateStr.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d);
-    return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   const handleSelectDay = (day: number, monthOffset: number) => {
@@ -173,6 +186,16 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   // Helper to find location details for an itinerary item
   const getLocation = (locId: string) => {
     return savedLocations.find((loc) => loc.id === locId);
+  };
+
+  const renderCompactCommuteIcon = (mode: CommuteMode) => {
+    switch (mode) {
+      case 'driving': return <Car size={14} />;
+      case 'transit': return <Train size={14} />;
+      case 'bicycle': return <Bike size={14} />;
+      case 'walking': return <Footprints size={14} />;
+      default: return null;
+    }
   };
 
   // Helper to find the route segment between two itinerary items
@@ -498,7 +521,34 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                 style={{ cursor: 'pointer', borderLeftColor: catInfo.color }}
               >
                 <div className="itinerary-card-header">
-                  <div className="itinerary-card-num" style={{ background: `${catInfo.color}20`, color: catInfo.color }}>{index + 1}</div>
+                  <div className="itinerary-card-left-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                    <div className="itinerary-card-num" style={{ background: `${catInfo.color}20`, color: catInfo.color }}>{index + 1}</div>
+                    
+                    {!isCompact && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-icon-only"
+                          style={{ width: '1.25rem', height: '1.25rem', padding: 0 }}
+                          disabled={isFirst}
+                          onClick={() => onReorderItinerary(index, 'up')}
+                          title="Move Up"
+                        >
+                          <ArrowUp size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-icon-only"
+                          style={{ width: '1.25rem', height: '1.25rem', padding: 0 }}
+                          disabled={isLast}
+                          onClick={() => onReorderItinerary(index, 'down')}
+                          title="Move Down"
+                        >
+                          <ArrowDown size={11} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   
                   <div className="itinerary-card-details">
                     <div className="itinerary-card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -585,7 +635,9 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                     {isCompact && (
                       <div className="itinerary-compact-meta">
                         {!isFirst && computedTimes[item.id]?.arrive && (
-                          <span className="compact-time-badge">{computedTimes[item.id].arrive}</span>
+                          <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)' }}>
+                            Arrive: {computedTimes[item.id].arrive}
+                          </span>
                         )}
                         {(item.durationHours > 0 || item.durationMinutes > 0) && (
                           <span className="compact-duration-badge">
@@ -593,39 +645,50 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                             {item.durationHours > 0 ? `${item.durationHours}h` : ''}{item.durationMinutes > 0 ? `${item.durationMinutes}m` : ''}
                           </span>
                         )}
+                        {computedTimes[item.id]?.leave && (
+                          <span className="compact-time-badge" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }}>
+                            Leave: {computedTimes[item.id].leave}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Ordering and remove controls — hidden in compact */}
+                  {/* Right side options menu — hidden in compact */}
                   {!isCompact && (
-                    <div className="itinerary-card-controls" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="btn btn-secondary btn-icon-only"
-                        style={{ width: '1.75rem', height: '1.75rem' }}
-                        disabled={isFirst}
-                        onClick={() => onReorderItinerary(index, 'up')}
-                        title="Move Up"
-                      >
-                        <ArrowUp size={13} />
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-icon-only"
-                        style={{ width: '1.75rem', height: '1.75rem' }}
-                        disabled={isLast}
-                        onClick={() => onReorderItinerary(index, 'down')}
-                        title="Move Down"
-                      >
-                        <ArrowDown size={13} />
-                      </button>
-                      <button
-                        className="btn btn-danger btn-icon-only"
-                        style={{ width: '1.75rem', height: '1.75rem', marginTop: '0.25rem' }}
-                        onClick={() => onRemoveFromItinerary(item.locationId)}
-                        title="Remove from Itinerary"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                    <div className="itinerary-card-controls" onClick={(e) => e.stopPropagation()} style={{ alignSelf: 'flex-start' }}>
+                      <div className="card-menu-container">
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-icon-only"
+                          style={{ width: '1.75rem', height: '1.75rem' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(activeMenuId === item.id ? null : item.id);
+                          }}
+                          title="More options"
+                        >
+                          <MoreVertical size={13} />
+                        </button>
+                        
+                        {activeMenuId === item.id && (
+                          <ul className="card-menu-dropdown">
+                            <li>
+                              <button
+                                type="button"
+                                className="card-menu-item-btn danger-action"
+                                onClick={() => {
+                                  onRemoveFromItinerary(item.locationId);
+                                  setActiveMenuId(null);
+                                }}
+                              >
+                                <Trash2 size={12} />
+                                <span>Remove Stop</span>
+                              </button>
+                            </li>
+                          </ul>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -692,6 +755,25 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                       )}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Commute path connecting to NEXT destination — simplified in compact */}
+              {nextItem && isCompact && (
+                <div className="itinerary-connection-compact" onClick={(e) => e.stopPropagation()}>
+                  <div className="itinerary-connection-compact-line" />
+                  <span className="itinerary-connection-compact-text">
+                    {renderCompactCommuteIcon(item.commuteMode)}
+                    {isLoadingRoutes ? (
+                      '...'
+                    ) : routeSegment ? (
+                      formatDuration(routeSegment.duration)
+                    ) : item.commuteMode === 'transit' ? (
+                      'Transit'
+                    ) : (
+                      'No route'
+                    )}
+                  </span>
                 </div>
               )}
             </div>

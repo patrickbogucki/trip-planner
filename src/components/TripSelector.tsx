@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Briefcase, Plus, Edit2, Trash2, Check, X, ChevronDown } from 'lucide-react';
+import { Briefcase, Plus, Edit2, Trash2, Check, X, ChevronDown, MoreVertical } from 'lucide-react';
 import type { Trip } from '../types';
 
 /** Formats the date range of a trip for display. Returns null if no dates set. */
@@ -64,8 +64,10 @@ export const TripSelector: React.FC<TripSelectorProps> = ({
   const [newTripName, setNewTripName] = useState('');
   const [renameValue, setRenameValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const activeTrip = trips.find((t) => t.id === activeTripId);
 
@@ -102,6 +104,9 @@ export const TripSelector: React.FC<TripSelectorProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+      }
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -262,29 +267,58 @@ export const TripSelector: React.FC<TripSelectorProps> = ({
             )}
           </div>
 
-          <div className="trip-actions">
+          <div className="trip-options-menu-container" ref={menuRef}>
             <button
-              className="btn btn-secondary btn-icon-only trip-btn"
-              onClick={handleStartRename}
-              title="Rename active trip"
+              type="button"
+              className="btn btn-secondary btn-icon-only trip-menu-trigger-btn"
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              title="Trip options"
             >
-              <Edit2 size={13} />
+              <MoreVertical size={16} />
             </button>
-            <button
-              className="btn btn-secondary btn-icon-only trip-btn"
-              onClick={() => setIsCreating(true)}
-              title="Create new trip"
-            >
-              <Plus size={13} />
-            </button>
-            <button
-              className="btn btn-danger btn-icon-only trip-btn"
-              onClick={handleDelete}
-              title="Delete active trip"
-              disabled={trips.length <= 1}
-            >
-              <Trash2 size={13} />
-            </button>
+
+            {isMenuOpen && (
+              <ul className="trip-actions-dropdown-menu">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreating(true);
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>New Trip</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStartRename();
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    <Edit2 size={14} />
+                    <span>Rename</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="danger-action"
+                    onClick={() => {
+                      handleDelete();
+                      setIsMenuOpen(false);
+                    }}
+                    disabled={trips.length <= 1}
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete</span>
+                  </button>
+                </li>
+              </ul>
+            )}
           </div>
         </div>
       )}
