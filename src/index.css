@@ -1797,3 +1797,72 @@ h1, h2, h3, h4, h5, h6 {
     height: 50%;
   }
 }
+
+/* Add Destination List Item Styles */
+.add-dest-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.add-dest-item.added {
+  background: color-mix(in srgb, var(--success) 8%, var(--bg-primary));
+  border-color: var(--success);
+}
+
+.add-dest-item:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary)) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.add-dest-item .hover-text {
+  display: none;
+  font-size: 0.7rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.add-dest-item:hover .hover-text {
+  display: inline-flex !important;
+  align-items: center;
+}
+
+.add-dest-item:hover .default-text {
+  display: none !important;
+}
+
+/* Add Destination Trigger Button */
+.btn-add-destination {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px dashed var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-add-destination:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+}

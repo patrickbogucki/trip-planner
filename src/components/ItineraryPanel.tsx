@@ -17,10 +17,11 @@ import {
   AlignJustify,
   LayoutList,
   Maximize2,
-  MoreVertical
+  MoreVertical,
+  Check
 } from 'lucide-react';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, TripDay } from '../types';
-import { getCategory } from '../utils/categories';
+import { getCategory, CATEGORIES } from '../utils/categories';
 
 interface ItineraryPanelProps {
   itinerary: ItineraryItem[];
@@ -42,6 +43,7 @@ interface ItineraryPanelProps {
   onRemoveDay: (index: number) => void;
   onZoomToTrip: () => void;
   canZoom: boolean;
+  onAddToItinerary?: (locationId: string) => void;
 }
 
 export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
@@ -64,12 +66,15 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onRemoveDay,
   onZoomToTrip,
   canZoom,
+  onAddToItinerary,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showSpendField, setShowSpendField] = useState<Record<string, boolean>>({});
+  const [isAddingDestination, setIsAddingDestination] = useState(false);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [viewDate, setViewDate] = useState(() => {
     if (tripDate) {
       const [y, m, d] = tripDate.split('-').map(Number);
@@ -864,6 +869,178 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
           </div>
         </>
       )}
+
+      {/* "Add Destination" Button / Inline Widget */}
+      <div style={{ margin: '0.25rem 0.5rem 0.5rem' }}>
+        {!isAddingDestination ? (
+          <button
+            type="button"
+            className="btn-add-destination"
+            onClick={() => {
+              setIsAddingDestination(true);
+              setSelectedCategoryFilter('all');
+            }}
+          >
+            <Plus size={15} />
+            <span>Add Destination</span>
+          </button>
+        ) : (
+          <div className="card" style={{
+            padding: '0.75rem',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.65rem',
+            animation: 'trip-slide-down-fade 0.15s ease-out',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>Choose Destination</span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-icon-only"
+                style={{ width: '1.5rem', height: '1.5rem', padding: 0 }}
+                onClick={() => setIsAddingDestination(false)}
+              >
+                <X size={12} />
+              </button>
+            </div>
+
+            {/* Category Pill Filters */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '0.3rem', 
+              overflowX: 'auto', 
+              paddingBottom: '0.2rem',
+              WebkitOverflowScrolling: 'touch' 
+            }}>
+              <button
+                type="button"
+                style={{
+                  padding: '0.2rem 0.5rem',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  borderRadius: '100px',
+                  border: '1px solid var(--border-color)',
+                  background: selectedCategoryFilter === 'all' ? 'var(--accent)' : 'var(--bg-primary)',
+                  color: selectedCategoryFilter === 'all' ? 'white' : 'var(--text-secondary)',
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                }}
+                onClick={() => setSelectedCategoryFilter('all')}
+              >
+                All
+              </button>
+              {CATEGORIES.map((cat) => {
+                const CatIcon = cat.icon;
+                const isActive = selectedCategoryFilter === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    style={{
+                      padding: '0.2rem 0.5rem',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      borderRadius: '100px',
+                      border: `1px solid ${isActive ? cat.color : 'var(--border-color)'}`,
+                      background: isActive ? cat.color : 'var(--bg-primary)',
+                      color: isActive ? 'white' : 'var(--text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setSelectedCategoryFilter(cat.id)}
+                  >
+                    <CatIcon size={10} />
+                    <span>{cat.label.split(' / ')[0]}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pinned Locations List */}
+            {(() => {
+              // Filter locations
+              const eligibleLocations = savedLocations.filter((loc) => {
+                // Matches selected category filter
+                if (selectedCategoryFilter !== 'all' && loc.category !== selectedCategoryFilter) return false;
+                return true;
+              });
+
+              if (eligibleLocations.length === 0) {
+                return (
+                  <div style={{ 
+                    padding: '1rem', 
+                    textAlign: 'center', 
+                    fontSize: '0.75rem', 
+                    color: 'var(--text-muted)',
+                    border: '1px dashed var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-primary)',
+                  }}>
+                    {savedLocations.length === 0 
+                      ? 'No pinned locations. Save places on Search tab first.'
+                      : 'No pinned places in this category.'
+                    }
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ 
+                  maxHeight: '160px', 
+                  overflowY: 'auto', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '0.35rem' 
+                }}>
+                  {eligibleLocations.map((loc) => {
+                    const cat = getCategory(loc.category);
+                    const CatIcon = cat.icon;
+                    const matchCount = itinerary.filter((item) => item.locationId === loc.id).length;
+                    const alreadyInItinerary = matchCount > 0;
+
+                    return (
+                      <button
+                        key={loc.id}
+                        type="button"
+                        className={`add-dest-item ${alreadyInItinerary ? 'added' : ''}`}
+                        onClick={() => {
+                          onAddToItinerary?.(loc.id);
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                          <CatIcon size={12} style={{ color: cat.color, flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{loc.name}</span>
+                        </div>
+                        
+                        <span className="default-text">
+                          {alreadyInItinerary ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', color: 'var(--success)', fontWeight: 700 }}>
+                              <Check size={11} />
+                              <span>Added ({matchCount}x)</span>
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--accent)', fontWeight: 700 }}>+ Add</span>
+                          )}
+                        </span>
+                        
+                        <span className="hover-text" style={{ fontWeight: 700 }}>
+                          + Add Stop
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
 
       </div>
 
