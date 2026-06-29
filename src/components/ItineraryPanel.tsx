@@ -69,6 +69,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [showSpendField, setShowSpendField] = useState<Record<string, boolean>>({});
   const [viewDate, setViewDate] = useState(() => {
     if (tripDate) {
       const [y, m, d] = tripDate.split('-').map(Number);
@@ -313,10 +314,13 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   // Pre-calculate chronological times for itinerary stops
   const computedTimes: { [id: string]: { arrive: string; leave: string } } = {};
   if (itinerary.length > 0) {
-    let currentMinutes = timeToMinutes(itinerary[0].startTime || '09:00');
+    const firstItem = itinerary[0];
+    const firstStartMinutes = timeToMinutes(firstItem.startTime || '09:00');
+    const firstStayMinutes = firstItem.durationHours * 60 + firstItem.durationMinutes;
+    let currentMinutes = firstStartMinutes + firstStayMinutes;
     
-    computedTimes[itinerary[0].id] = {
-      arrive: '',
+    computedTimes[firstItem.id] = {
+      arrive: formatMinutesToTime(firstStartMinutes),
       leave: formatMinutesToTime(currentMinutes),
     };
     
@@ -511,6 +515,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
           
           const catInfo = getCategory(loc.category);
           const Icon = catInfo.icon;
+          const isSpendActive = (item.durationHours > 0 || item.durationMinutes > 0) || !!showSpendField[item.id];
 
           return (
             <div key={item.id} className={`itinerary-item-wrapper ${isCompact ? 'compact' : ''}`}>
@@ -562,26 +567,72 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                         
                         {/* Time Spent / Leave Picker */}
                         {isFirst ? (
-                          <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
-                            <Clock size={14} className="text-muted" />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Leave at:</span>
-                            <input
-                              type="time"
-                              value={item.startTime || '09:00'}
-                              onChange={(e) => onUpdateStartTime(item.id, e.target.value)}
-                              style={{
-                                border: '1px solid var(--border-color)',
-                                borderRadius: 'var(--radius-sm)',
-                                background: 'var(--bg-primary)',
-                                color: 'var(--text-primary)',
-                                fontFamily: 'var(--font-sans)',
-                                fontSize: '0.8rem',
-                                fontWeight: '600',
-                                padding: '0.1rem 0.25rem',
-                                outline: 'none',
-                                cursor: 'pointer',
-                              }}
-                            />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
+                            <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
+                              <Clock size={14} className="text-muted" />
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                {isSpendActive ? 'Start at:' : 'Leave at:'}
+                              </span>
+                              <input
+                                type="time"
+                                value={item.startTime || '09:00'}
+                                onChange={(e) => onUpdateStartTime(item.id, e.target.value)}
+                                style={{
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  background: 'var(--bg-primary)',
+                                  color: 'var(--text-primary)',
+                                  fontFamily: 'var(--font-sans)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  padding: '0.1rem 0.25rem',
+                                  outline: 'none',
+                                  cursor: 'pointer',
+                                }}
+                              />
+                            </div>
+                            
+                            {isSpendActive && (
+                              <>
+                                <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
+                                  <Clock size={14} className="text-muted" />
+                                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spend:</span>
+                                  
+                                  <div className="duration-input-wrapper">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="99"
+                                      value={item.durationHours}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, parseInt(e.target.value) || 0);
+                                        onUpdateDuration(item.id, val, item.durationMinutes);
+                                      }}
+                                    />
+                                    <span>h</span>
+                                  </div>
+                                  
+                                  <div className="duration-input-wrapper">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="59"
+                                      value={item.durationMinutes}
+                                      onChange={(e) => {
+                                        const val = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
+                                        onUpdateDuration(item.id, item.durationHours, val);
+                                      }}
+                                    />
+                                    <span>m</span>
+                                  </div>
+                                </div>
+
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
+                                  <span style={{ fontWeight: 600, color: 'var(--accent)' }}>Leave:</span>
+                                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.leave}</span>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
@@ -590,38 +641,40 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                               <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.arrive}</span>
                             </div>
                             
-                            <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
-                              <Clock size={14} className="text-muted" />
-                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spend:</span>
-                              
-                              <div className="duration-input-wrapper">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="99"
-                                  value={item.durationHours}
-                                  onChange={(e) => {
-                                    const val = Math.max(0, parseInt(e.target.value) || 0);
-                                    onUpdateDuration(item.id, val, item.durationMinutes);
-                                  }}
-                                />
-                                <span>h</span>
+                            {isSpendActive && (
+                              <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
+                                <Clock size={14} className="text-muted" />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spend:</span>
+                                
+                                <div className="duration-input-wrapper">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="99"
+                                    value={item.durationHours}
+                                    onChange={(e) => {
+                                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                                      onUpdateDuration(item.id, val, item.durationMinutes);
+                                    }}
+                                  />
+                                  <span>h</span>
+                                </div>
+                                
+                                <div className="duration-input-wrapper">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="59"
+                                    value={item.durationMinutes}
+                                    onChange={(e) => {
+                                      const val = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
+                                      onUpdateDuration(item.id, item.durationHours, val);
+                                    }}
+                                  />
+                                  <span>m</span>
+                                </div>
                               </div>
-                              
-                              <div className="duration-input-wrapper">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="59"
-                                  value={item.durationMinutes}
-                                  onChange={(e) => {
-                                    const val = Math.min(59, Math.max(0, parseInt(e.target.value) || 0));
-                                    onUpdateDuration(item.id, item.durationHours, val);
-                                  }}
-                                />
-                                <span>m</span>
-                              </div>
-                            </div>
+                            )}
 
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.1rem' }}>
                               <span style={{ fontWeight: 600, color: 'var(--accent)' }}>Leave:</span>
@@ -673,6 +726,35 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                         
                         {activeMenuId === item.id && (
                           <ul className="card-menu-dropdown">
+                            <li>
+                              {isSpendActive ? (
+                                <button
+                                  type="button"
+                                  className="card-menu-item-btn"
+                                  onClick={() => {
+                                    onUpdateDuration(item.id, 0, 0);
+                                    setShowSpendField(prev => ({ ...prev, [item.id]: false }));
+                                    setActiveMenuId(null);
+                                  }}
+                                >
+                                  <Clock size={12} />
+                                  <span>Remove Spend Time</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="card-menu-item-btn"
+                                  onClick={() => {
+                                    onUpdateDuration(item.id, 0, 0);
+                                    setShowSpendField(prev => ({ ...prev, [item.id]: true }));
+                                    setActiveMenuId(null);
+                                  }}
+                                >
+                                  <Clock size={12} />
+                                  <span>Add Spend Time</span>
+                                </button>
+                              )}
+                            </li>
                             <li>
                               <button
                                 type="button"
