@@ -1,32 +1,95 @@
-# React + TypeScript + Vite
+# Horizon Trip Planner
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Horizon is a map-first trip planning app for building multi-day travel itineraries.
 
-Currently, two official plugins are available:
+You can search and pin places, assign them to specific days, order stops in a schedule, set stay durations and travel modes, and view route/distance/time estimates on an interactive map.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What the app does
 
-## React Compiler
+- Manage multiple trips (create, rename, delete, switch)
+- Plan trips across multiple days
+- Search destinations with Mapbox and pin custom map locations
+- Categorize saved places (stay, eat, coffee, attraction, landmark, shopping, nature, transport, other)
+- Add pinned places to one or more days
+- Build ordered day itineraries with:
+  - start/departure time
+  - per-stop stay durations
+  - commute mode between stops (driving, transit estimate, walking, bicycle)
+- Visualize stops and routes on a Leaflet map
+- See quick trip stats (stops, distance, travel/stay time)
+- Persist all trip data in browser local storage
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Common use cases
 
-## Expanding the Oxlint configuration
+- **Vacation planning:** Build a realistic day-by-day schedule before a trip
+- **City exploration:** Organize restaurants, landmarks, and activities by day
+- **Road trip drafting:** Compare route order, distances, and expected travel time
+- **Weekend itinerary sharing:** Create a structured plan for friends/family
+- **On-the-fly planning:** Drop map pins quickly when you discover places
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Tech stack
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+- React 19 + TypeScript
+- Vite
+- Leaflet (map rendering)
+- Mapbox APIs (search, geocoding, directions)
+- Lucide icons
+- Oxlint
+
+## Getting started
+
+### 1) Install dependencies
+
+```bash
+npm ci
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### 2) Configure environment
+
+Create a `.env` file in the project root:
+
+```env
+VITE_MAPBOX_TOKEN=your_mapbox_access_token_here
+```
+
+Mapbox is required for full search, geocoding, and directions functionality.
+
+### 3) Run the app
+
+```bash
+npm run dev
+```
+
+### 4) Build for production
+
+```bash
+npm run build
+```
+
+### 5) Lint
+
+```bash
+npm run lint
+```
+
+## Scripts
+
+- `npm run dev` - start Vite dev server with hot reload
+- `npm run build` - TypeScript build + Vite production build
+- `npm run preview` - preview production build
+- `npm run lint` - run oxlint
+
+## How planning works
+
+- Trips contain:
+  - saved locations
+  - one or more days
+  - per-day itinerary entries that reference saved locations
+- Routing is computed between consecutive itinerary stops
+- Transit mode uses estimation fallback
+- Data persists in browser `localStorage` (`horizon_trips`, `horizon_active_trip_id`)
+
+## Notes
+
+- If Mapbox token is missing, search/routing features are limited.
+- The app is client-side only (no backend/database by default).
