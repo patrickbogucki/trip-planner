@@ -296,8 +296,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         const existingMarker = markersRef.current[activeLocation.id];
         map.invalidateSize();
         if (existingMarker) {
-          // Pan & Zoom to location
-          map.setView([activeLocation.lat, activeLocation.lng], 14, {
+          // Pan to location
+          map.panTo([activeLocation.lat, activeLocation.lng], {
             animate: true,
             duration: 0.75,
           });
@@ -305,7 +305,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           existingMarker.openPopup();
         } else {
           // Fallback if marker not in ref yet
-          map.setView([activeLocation.lat, activeLocation.lng], 14, {
+          map.panTo([activeLocation.lat, activeLocation.lng], {
             animate: true,
             duration: 0.75,
           });
@@ -371,7 +371,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         previewMarkerRef.current = previewMarker;
 
         map.invalidateSize();
-        map.setView([activeLocation.lat, activeLocation.lng], 14, {
+        map.panTo([activeLocation.lat, activeLocation.lng], {
           animate: true,
           duration: 0.75,
         });
