@@ -187,6 +187,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const [previewCategory, setPreviewCategory] = useState<LocationCategory>('other');
   
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchContainerRef = useRef<HTMLFormElement>(null);
   const suggestRequestIdRef = useRef(0);
   const suggestAbortRef = useRef<AbortController | null>(null);
   const detailsRequestIdRef = useRef(0);
@@ -209,6 +210,19 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       setPreviewCategory(activeLocation.category || 'other');
     }
   }, [activeLocation]);
+
+  // Click outside to close search suggestions dropdown
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
 
   // Debounced search query
   useEffect(() => {
@@ -445,7 +459,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       )}
 
       {/* Search Input Box */}
-      <form onSubmit={handleExecuteSearch} className="input-group">
+      <form onSubmit={handleExecuteSearch} className="input-group" ref={searchContainerRef}>
         <label className="input-label" htmlFor="search-input">Search Destinations</label>
         <div className="search-results-container">
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
