@@ -12,6 +12,8 @@ interface MapComponentProps {
   onSelectLocation: (loc: Location | null) => void;
   onAddLocation: (loc: Location) => void;
   onRegisterZoom?: (fn: () => void) => void;
+  searchResults?: Location[];
+  onViewportChange?: (center: [number, number], bbox: [number, number, number, number]) => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -22,6 +24,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   onSelectLocation,
   onAddLocation,
   onRegisterZoom,
+  searchResults = [],
+  onViewportChange,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
@@ -32,6 +36,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   
   // Store leaflet object references to perform clean updates
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
+  const searchMarkersRef = useRef<{ [id: string]: L.Marker }>({});
   const polylineGroupRef = useRef<L.FeatureGroup | null>(null);
   const previewMarkerRef = useRef<L.Marker | null>(null);
 
@@ -87,6 +92,24 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     polylineGroupRef.current = polylineGroup;
 
     setMap(mapInstance);
+
+    // Report initial viewport
+    const initCenter = mapInstance.getCenter();
+    const initBounds = mapInstance.getBounds();
+    onViewportChange?.(
+      [initCenter.lng, initCenter.lat],
+      [initBounds.getWest(), initBounds.getSouth(), initBounds.getEast(), initBounds.getNorth()]
+    );
+
+    // Listen for move/zoom updates
+    mapInstance.on('moveend', () => {
+      const center = mapInstance.getCenter();
+      const bounds = mapInstance.getBounds();
+      onViewportChange?.(
+        [center.lng, center.lat],
+        [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
+      );
+    });
 
     setTimeout(() => {
       mapInstance.invalidateSize();
@@ -151,6 +174,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       setMap(null);
       // Clear leaflet refs to prevent stale data in React 18 Strict Mode double-mounts
       markersRef.current = {};
+      searchMarkersRef.current = {};
       polylineGroupRef.current = null;
       previewMarkerRef.current = null;
     };
@@ -356,6 +380,101 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       }
     }
   }, [map, activeLocation, savedLocations]);
+
+  // Sync Temporary Search Result Markers
+  useEffect(() => {
+    if (!map) return;
+
+    const currentSearchMarkerIds = new Set<string>();
+
+    searchResults.forEach((loc) => {
+      // Avoid duplicate search markers if the location is already saved
+      if (savedLocations.some((s) => s.id === loc.id || (Math.abs(s.lat - loc.lat) < 1e-6 && Math.abs(s.lng - loc.lng) < 1e-6))) {
+        return;
+      }
+
+      const markerId = `search-${loc.id}`;
+      currentSearchMarkerIds.add(markerId);
+
+      const iconHtml = `
+        <div class="map-category-marker search-result-pin" style="background-color: #8b5cf6; border: 2px solid white; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);">
+          <svg class="map-category-svg" viewBox="0 0 24 24" style="fill: white;">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+          </svg>
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        className: 'leaflet-custom-marker search-pin',
+        html: iconHtml,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16],
+      });
+
+      if (searchMarkersRef.current[markerId]) {
+        const existingMarker = searchMarkersRef.current[markerId];
+        existingMarker.setLatLng([loc.lat, loc.lng]);
+        existingMarker.setIcon(customIcon);
+      } else {
+        const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
+
+        const popupContent = document.createElement('div');
+        popupContent.style.fontFamily = "'Outfit', sans-serif";
+        popupContent.style.padding = '4px';
+
+        const title = document.createElement('h4');
+        title.style.margin = '0 0 4px 0';
+        title.style.fontSize = '13px';
+        title.style.fontWeight = '600';
+        title.innerText = loc.name;
+        popupContent.appendChild(title);
+
+        const address = document.createElement('p');
+        address.style.margin = '0';
+        address.style.fontSize = '10px';
+        address.style.color = '#64748b';
+        address.style.maxWidth = '180px';
+        address.style.lineHeight = '1.3';
+        address.innerText = loc.displayName;
+        popupContent.appendChild(address);
+
+        const btn = document.createElement('button');
+        btn.style.marginTop = '8px';
+        btn.style.backgroundColor = '#8b5cf6';
+        btn.style.color = '#ffffff';
+        btn.style.border = 'none';
+        btn.style.padding = '4px 8px';
+        btn.style.fontSize = '10px';
+        btn.style.fontWeight = '600';
+        btn.style.borderRadius = '4px';
+        btn.style.cursor = 'pointer';
+        btn.innerText = '+ Pin Location';
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          onAddLocation(loc);
+          marker.closePopup();
+        };
+        popupContent.appendChild(btn);
+
+        marker.bindPopup(popupContent);
+
+        marker.on('click', () => {
+          onSelectLocation(loc);
+        });
+
+        searchMarkersRef.current[markerId] = marker;
+      }
+    });
+
+    // Remove obsolete search markers
+    Object.keys(searchMarkersRef.current).forEach((id) => {
+      if (!currentSearchMarkerIds.has(id)) {
+        searchMarkersRef.current[id].remove();
+        delete searchMarkersRef.current[id];
+      }
+    });
+  }, [map, searchResults, savedLocations]);
 
   // Sync Route Polylines
   useEffect(() => {

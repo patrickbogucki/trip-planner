@@ -13,6 +13,10 @@ interface SearchPanelProps {
   onToggleLocationDay: (locationId: string, dayIndex: number) => void;
   onSelectLocation: (loc: Location | null) => void;
   onUpdateLocationCategory: (id: string, category: LocationCategory) => void;
+  viewportCenter: [number, number];
+  viewportBbox: [number, number, number, number] | null;
+  searchResults: Location[];
+  onSetSearchResults: (results: Location[]) => void;
 }
 
 interface SavedLocationItemProps {
@@ -171,6 +175,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   onToggleLocationDay,
   onSelectLocation,
   onUpdateLocationCategory,
+  viewportCenter,
+  viewportBbox,
+  searchResults,
+  onSetSearchResults,
 }) => {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -229,10 +237,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       const abortController = new AbortController();
       suggestAbortRef.current = abortController;
       try {
-        const response = await fetch(
-          `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${mapboxToken}&session_token=${sessionToken}&limit=5`,
-          { signal: abortController.signal }
-        );
+        const [lng, lat] = viewportCenter;
+        let url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${mapboxToken}&session_token=${sessionToken}&limit=5&proximity=${lng},${lat}`;
+        
+        if (viewportBbox) {
+          url += `&bbox=${viewportBbox.join(',')}`;
+        }
+
+        const response = await fetch(url, { signal: abortController.signal });
 
         if (!response.ok) {
           throw new Error('Search failed. Please try again.');
@@ -258,9 +270,95 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       }
       suggestAbortRef.current?.abort();
     };
-  }, [query, mapboxToken, sessionToken]);
+  }, [query, mapboxToken, sessionToken, viewportCenter, viewportBbox]);
+
+  const executeSearchQuery = async (searchQuery: string) => {
+    suggestAbortRef.current?.abort();
+    detailsAbortRef.current?.abort();
+
+    setIsLoading(true);
+    setError(null);
+    setSuggestions([]);
+
+    const [lng, lat] = viewportCenter;
+    let url = `https://api.mapbox.com/search/searchbox/v1/search?q=${encodeURIComponent(searchQuery)}&access_token=${mapboxToken}&session_token=${sessionToken}&limit=10&proximity=${lng},${lat}`;
+    
+    if (viewportBbox) {
+      url += `&bbox=${viewportBbox.join(',')}`;
+    }
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Search request failed. Please check connection and token.');
+      }
+      const data = await response.json();
+      const features = data.features || [];
+      
+      const results: Location[] = features.map((f: any) => {
+        const [rlng, rlat] = f.geometry.coordinates;
+        let cat: LocationCategory = 'other';
+        const maki = f.properties?.maki;
+        if (maki === 'restaurant' || maki === 'fast-food' || maki === 'bar') {
+          cat = 'eat';
+        } else if (maki === 'cafe') {
+          cat = 'coffee';
+        } else if (maki === 'museum' || maki === 'gallery' || maki === 'theatre' || maki === 'art-gallery') {
+          cat = 'attraction';
+        } else if (maki === 'monument') {
+          cat = 'landmark';
+        } else if (maki === 'park' || maki === 'garden' || maki === 'beach' || maki === 'forest') {
+          cat = 'nature';
+        } else if (maki === 'mall' || maki === 'shop' || maki === 'clothing-store' || maki === 'supermarket') {
+          cat = 'shopping';
+        } else if (maki === 'hotel' || maki === 'motel' || maki === 'hostel' || maki === 'guest-house') {
+          cat = 'stay';
+        } else if (maki === 'airport' || maki === 'airfield' || maki === 'train' || maki === 'bus' || maki === 'ferry') {
+          cat = 'transport';
+        }
+        
+        return {
+          id: `search-${f.properties.mapbox_id || Math.random().toString(36).substr(2, 9)}`,
+          name: f.properties.name || 'Search Result',
+          displayName: f.properties.full_address || f.properties.place_formatted || '',
+          lat: rlat,
+          lng: rlng,
+          category: cat,
+        };
+      });
+
+      onSetSearchResults(results);
+      if (results.length === 0) {
+        setError('No matching places found in this area.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error fetching search results. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExecuteSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (query.trim().length < 2) return;
+    await executeSearchQuery(query);
+  };
 
   const handleSelectSuggestion = async (item: any) => {
+    // Check if the suggestion is a general category or search query
+    const isGeneralSearch = 
+      item.feature_type === 'category' || 
+      item.suggestion_type === 'category' || 
+      item.suggestion_type === 'query' ||
+      !item.place_formatted;
+
+    if (isGeneralSearch) {
+      setQuery(item.name);
+      await executeSearchQuery(item.name);
+      return;
+    }
+
     detailsAbortRef.current?.abort();
     const requestId = ++detailsRequestIdRef.current;
     const abortController = new AbortController();
@@ -342,7 +440,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       )}
 
       {/* Search Input Box */}
-      <div className="input-group">
+      <form onSubmit={handleExecuteSearch} className="input-group">
         <label className="input-label" htmlFor="search-input">Search Destinations</label>
         <div className="search-results-container">
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -350,23 +448,33 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               id="search-input"
               type="text"
               className="text-input"
-              placeholder={mapboxToken ? "e.g. Eiffel Tower, Paris..." : "Configure Mapbox token to search..."}
+              placeholder={mapboxToken ? "Search near view (e.g. coffee, sights)..." : "Configure Mapbox token to search..."}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={!mapboxToken}
-              style={{ paddingLeft: '2.5rem' }}
+              style={{ paddingLeft: '2.5rem', paddingRight: '4.5rem' }}
             />
             <Search 
               size={18} 
               className="text-muted" 
               style={{ position: 'absolute', left: '1rem', pointerEvents: 'none' }} 
             />
-            {isLoading && (
-              <div 
-                className="spinner" 
-                style={{ position: 'absolute', right: '1rem' }} 
-              />
-            )}
+            <div style={{ position: 'absolute', right: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              {isLoading && (
+                <div 
+                  className="spinner" 
+                  style={{ marginRight: '0.25rem' }} 
+                />
+              )}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', height: '1.85rem' }}
+                disabled={!mapboxToken || query.trim().length < 2}
+              >
+                Go
+              </button>
+            </div>
           </div>
 
           {/* Suggestions Dropdown */}
@@ -394,7 +502,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
               ))}
             </ul>
           )}
-          {query.trim().length >= 3 && suggestions.length === 0 && !isLoading && (
+          {query.trim().length >= 3 && suggestions.length === 0 && !isLoading && searchResults.length === 0 && (
             <div style={{ padding: '0.75rem', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>No exact matches found</div>
               Try searching for a street or city (e.g. "Spring Green Boulevard, Katy") or click directly on the map to drop a pin at the location!
@@ -407,7 +515,80 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
             <span>{error}</span>
           </div>
         )}
-      </div>
+      </form>
+
+      {/* Search Results List */}
+      {searchResults.length > 0 && (
+        <div className="search-results-section" style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+              Search Results ({searchResults.length})
+            </span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.15rem 0.4rem', fontSize: '0.65rem', height: 'auto' }}
+              onClick={() => onSetSearchResults([])}
+            >
+              Clear
+            </button>
+          </div>
+          <div className="saved-list" style={{ maxHeight: '220px', overflowY: 'auto', gap: '0.4rem', paddingBottom: '0.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
+            {searchResults.map((loc) => {
+              const isAlreadySaved = savedLocations.some((s) => s.id === loc.id || (Math.abs(s.lat - loc.lat) < 1e-6 && Math.abs(s.lng - loc.lng) < 1e-6));
+              const catInfo = getCategory(loc.category || 'other');
+              const Icon = catInfo.icon;
+              const isActive = activeLocation?.id === loc.id || activeLocation?.id === `search-${loc.id}` || `search-${activeLocation?.id}` === loc.id;
+              
+              return (
+                <div
+                  key={loc.id}
+                  className="card search-result-item"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: '0.5rem 0.65rem',
+                    gap: '0.5rem',
+                    borderColor: isActive ? 'var(--accent)' : 'var(--border-color)',
+                    background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                    borderLeft: `3px solid ${catInfo.color}`,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => onSelectLocation(loc)}
+                >
+                  <div style={{ color: catInfo.color, background: `${catInfo.color}15`, padding: '0.25rem', borderRadius: '0.25rem', flexShrink: 0 }}>
+                    <Icon size={14} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {loc.name}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {loc.displayName}
+                    </div>
+                  </div>
+                  {isAlreadySaved ? (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--success)', paddingRight: '0.25rem', flexShrink: 0 }}>✓ Pinned</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ padding: '0.25rem 0.45rem', fontSize: '0.7rem', height: '1.65rem', flexShrink: 0 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddLocation(loc);
+                      }}
+                    >
+                      + Pin
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Active Preview Location (when clicked but not pinned yet) */}
       {activeLocation && !isLocationSaved(activeLocation.lat, activeLocation.lng) && (

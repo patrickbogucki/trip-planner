@@ -35,6 +35,9 @@ function App() {
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
+  const [viewportCenter, setViewportCenter] = useState<[number, number]>([-74.006, 40.7128]);
+  const [viewportBbox, setViewportBbox] = useState<[number, number, number, number] | null>(null);
+  const [searchResults, setSearchResults] = useState<Location[]>([]);
   const zoomToTripRef = useRef<(() => void) | null>(null);
   const routeRequestSeqRef = useRef(0);
 
@@ -708,6 +711,10 @@ function App() {
               onToggleLocationDay={handleToggleLocationDay}
               onSelectLocation={setActiveLocation}
               onUpdateLocationCategory={handleUpdateLocationCategory}
+              viewportCenter={viewportCenter}
+              viewportBbox={viewportBbox}
+              searchResults={searchResults}
+              onSetSearchResults={setSearchResults}
             />
           ) : (
             <ItineraryPanel
@@ -747,6 +754,11 @@ function App() {
           onSelectLocation={setActiveLocation}
           onAddLocation={handleAddLocation}
           onRegisterZoom={(fn) => { zoomToTripRef.current = fn; }}
+          searchResults={searchResults}
+          onViewportChange={(center, bbox) => {
+            setViewportCenter(center);
+            setViewportBbox(bbox);
+          }}
         />
       </main>
     </div>
