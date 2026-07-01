@@ -281,7 +281,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
     setSuggestions([]);
 
     const [lng, lat] = viewportCenter;
-    let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${mapboxToken}&limit=10&proximity=${lng},${lat}`;
+    let url = `https://api.mapbox.com/search/searchbox/v1/forward?q=${encodeURIComponent(searchQuery)}&access_token=${mapboxToken}&limit=10&proximity=${lng},${lat}`;
     
     if (viewportBbox) {
       url += `&bbox=${viewportBbox.join(',')}`;
@@ -296,10 +296,13 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       const features = data.features || [];
       
       const results: Location[] = features.map((f: any) => {
-        const [rlng, rlat] = f.center;
+        const coords = f.geometry?.coordinates || f.center;
+        if (!coords || coords.length < 2) return null;
+        const [rlng, rlat] = coords;
+
         let cat: LocationCategory = 'other';
         const maki = f.properties?.maki;
-        const categoryText = f.properties?.category || '';
+        const categoryText = f.properties?.category || (f.properties?.poi_category ? f.properties.poi_category.join(' ') : '');
         
         if (maki === 'restaurant' || maki === 'fast-food' || maki === 'bar' || categoryText.includes('restaurant') || categoryText.includes('food')) {
           cat = 'eat';
@@ -313,21 +316,21 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           cat = 'nature';
         } else if (maki === 'mall' || maki === 'shop' || maki === 'clothing-store' || maki === 'supermarket' || categoryText.includes('shop') || categoryText.includes('mall')) {
           cat = 'shopping';
-        } else if (maki === 'hotel' || maki === 'motel' || maki === 'hostel' || maki === 'guest-house' || categoryText.includes('lodging') || categoryText.includes('hotel')) {
+        } else if (maki === 'hotel' || maki === 'motel' || maki === 'hostel' || maki === 'guest-house' || categoryText.includes('lodging') || categoryText.includes('hotel') || categoryText.includes('stay')) {
           cat = 'stay';
         } else if (maki === 'airport' || maki === 'airfield' || maki === 'train' || maki === 'bus' || maki === 'ferry' || categoryText.includes('airport') || categoryText.includes('station')) {
           cat = 'transport';
         }
         
         return {
-          id: `search-${f.id || Math.random().toString(36).substr(2, 9)}`,
-          name: f.text || 'Search Result',
-          displayName: f.place_name || '',
+          id: `search-${f.properties?.mapbox_id || f.id || Math.random().toString(36).substr(2, 9)}`,
+          name: f.properties?.name || f.text || 'Search Result',
+          displayName: f.properties?.full_address || f.properties?.place_formatted || f.place_name || '',
           lat: rlat,
           lng: rlng,
           category: cat,
         };
-      });
+      }).filter(Boolean) as Location[];
 
       onSetSearchResults(results);
       if (results.length === 0) {
