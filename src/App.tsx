@@ -34,7 +34,10 @@ function App() {
   const [routes, setRoutes] = useState<RouteSegment[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
-  const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
+  const [activeDayIndex, setActiveDayIndex] = useState<number>(() => {
+    const saved = localStorage.getItem('horizon_active_day_index');
+    return saved ? parseInt(saved, 10) || 0 : 0;
+  });
   const [viewportCenter, setViewportCenter] = useState<[number, number]>([-74.006, 40.7128]);
   const [viewportBbox, setViewportBbox] = useState<[number, number, number, number] | null>(null);
   const [searchResults, setSearchResults] = useState<Location[]>([]);
@@ -139,6 +142,14 @@ function App() {
       setStorageError('Unable to save active trip selection locally. Free up browser storage and refresh.');
     }
   }, [activeTripId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('horizon_active_day_index', activeDayIndex.toString());
+    } catch (error) {
+      console.error('Failed to persist active day index to localStorage', error);
+    }
+  }, [activeDayIndex]);
 
   // Ensure activeTripId points to a valid trip (safeguard)
   useEffect(() => {

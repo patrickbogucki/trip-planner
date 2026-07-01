@@ -192,16 +192,6 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     return days;
   };
 
-  const formatDisplayDate = (dateStr?: string) => {
-    if (!dateStr) return 'Set start date';
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const dateObj = new Date(y, m - 1, d);
-    return dateObj.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
 
   // Short label for day tabs: "Sun, Jun 5"
   const formatTabDate = (dateStr?: string): string | null => {
@@ -230,6 +220,31 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     end.setDate(start.getDate() + days.length - 1);
     end.setHours(0, 0, 0, 0);
     return { start, end };
+  };
+
+  const formatTripDateRange = () => {
+    const range = getSelectedRange();
+    if (!range) return 'Set trip date';
+
+    const startObj = range.start;
+    const endObj = range.end;
+    const sameYear = startObj.getFullYear() === endObj.getFullYear();
+    const sameMonth = sameYear && startObj.getMonth() === endObj.getMonth();
+
+    let rangeStr = '';
+    if (days.length <= 1) {
+      rangeStr = startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } else if (sameMonth) {
+      rangeStr = `${startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${endObj.getDate()}, ${endObj.getFullYear()}`;
+    } else if (sameYear) {
+      rangeStr = `${startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${endObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${endObj.getFullYear()}`;
+    } else {
+      rangeStr = `${startObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${endObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+
+    const daysCount = days.length;
+    const daysStr = `(${daysCount} day${daysCount > 1 ? 's' : ''})`;
+    return `${rangeStr} ${daysStr}`;
   };
 
   // Helper to get hovered range boundaries
@@ -428,7 +443,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
       
       {/* Custom Date Picker — always for start of trip (Day 1) */}
       <div className="trip-date-container">
-        <span className="trip-date-label">Trip Start Date</span>
+        <span className="trip-date-label">Trip Date</span>
         <div className="trip-date-custom-wrapper" ref={dropdownRef}>
           <button
             type="button"
@@ -439,7 +454,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
           >
             <Calendar size={16} className="trip-date-icon" />
             <span className="trip-date-current-val">
-              {formatDisplayDate(tripDate)}
+              {formatTripDateRange()}
             </span>
             <ChevronDown size={14} className={`trip-caret-icon ${isOpen ? 'open' : ''}`} />
           </button>
