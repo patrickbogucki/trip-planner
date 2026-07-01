@@ -78,6 +78,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   const [isAddingDestination, setIsAddingDestination] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [insertingAtIndex, setInsertingAtIndex] = useState<number | null>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [viewDate, setViewDate] = useState(() => {
     if (tripDate) {
       const [y, m, d] = tripDate.split('-').map(Number);
@@ -190,6 +191,30 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     const d = targetDate.getDate().toString().padStart(2, '0');
     onUpdateTripDate(`${y}-${m}-${d}`);
     setIsOpen(false);
+  };
+
+  // Helper to get selected range boundaries
+  const getSelectedRange = () => {
+    if (!tripDate) return null;
+    const [y, m, d] = tripDate.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + days.length - 1);
+    end.setHours(0, 0, 0, 0);
+    return { start, end };
+  };
+
+  // Helper to get hovered range boundaries
+  const getHoveredRange = () => {
+    if (!hoveredDate) return null;
+    const [y, m, d] = hoveredDate.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + days.length - 1);
+    end.setHours(0, 0, 0, 0);
+    return { start, end };
   };
   
   // Helper to find location details for an itinerary item
@@ -415,20 +440,85 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                 
                 {getCalendarDays().map((cell, idx) => {
                   const cellDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + cell.monthOffset, cell.day);
+                  cellDate.setHours(0, 0, 0, 0);
                   const cellDateStr = `${cellDate.getFullYear()}-${(cellDate.getMonth() + 1).toString().padStart(2, '0')}-${cellDate.getDate().toString().padStart(2, '0')}`;
                   const isSelected = tripDate === cellDateStr;
+
+                  // Selected range calculations
+                  const selectedRange = getSelectedRange();
+                  const isInSelectedRange = selectedRange && cellDate >= selectedRange.start && cellDate <= selectedRange.end;
+                  const isSelectedStart = isSelected && days.length > 1;
+                  const isSelectedEnd = selectedRange && cellDate.getTime() === selectedRange.end.getTime() && days.length > 1;
+
+                  // Hovered range calculations
+                  const hoveredRange = getHoveredRange();
+                  const isInHoverRange = hoveredRange && cellDate >= hoveredRange.start && cellDate <= hoveredRange.end;
+                  const isHoverStart = hoveredRange && cellDate.getTime() === hoveredRange.start.getTime();
+                  const isHoverEnd = hoveredRange && cellDate.getTime() === hoveredRange.end.getTime();
+
+                  const classNames = [
+                    'calendar-day',
+                    !cell.isCurrentMonth ? 'empty' : '',
+                    isSelected ? 'selected' : '',
+                    // Selected range classes
+                    isInSelectedRange && !isSelectedStart && !isSelectedEnd ? 'in-selected-range' : '',
+                    isSelectedStart ? 'selected-range-start' : '',
+                    isSelectedEnd ? 'selected-range-end' : '',
+                    // Hover range classes
+                    isInHoverRange && !isHoverStart && !isHoverEnd ? 'in-hover-range' : '',
+                    isHoverStart ? 'hover-range-start' : '',
+                    isHoverEnd ? 'hover-range-end' : '',
+                  ].filter(Boolean).join(' ');
                   
                   return (
                     <button
                       key={idx}
                       type="button"
-                      className={`calendar-day ${!cell.isCurrentMonth ? 'empty' : ''} ${isSelected ? 'selected' : ''}`}
+                      className={classNames}
                       onClick={() => handleSelectDay(cell.day, cell.monthOffset)}
+                      onMouseEnter={() => setHoveredDate(cellDateStr)}
+                      onMouseLeave={() => setHoveredDate(null)}
                     >
                       {cell.day}
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Range Info Footer */}
+              <div className="calendar-info-footer" style={{
+                marginTop: '0.65rem',
+                paddingTop: '0.55rem',
+                borderTop: '1px solid var(--border-color)',
+                fontSize: '0.75rem',
+                color: 'var(--text-secondary)',
+                textAlign: 'center',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.25rem',
+              }}>
+                {(() => {
+                  const range = getHoveredRange() || getSelectedRange();
+                  if (!range) return <span>Select a start date</span>;
+                  const opt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+                  const startStr = range.start.toLocaleDateString('en-US', opt);
+                  const endStr = range.end.toLocaleDateString('en-US', opt);
+                  return (
+                    <span>
+                      {getHoveredRange() ? 'Preview: ' : 'Active: '}
+                      <strong style={{ color: 'var(--accent)' }}>{startStr}</strong>
+                      {days.length > 1 && (
+                        <>
+                          {' to '}
+                          <strong style={{ color: 'var(--accent)' }}>{endStr}</strong>
+                        </>
+                      )}
+                      {` (${days.length} day${days.length > 1 ? 's' : ''})`}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
           )}

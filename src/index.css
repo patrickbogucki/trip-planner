@@ -1856,3 +1856,55 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
 }
+
+/* Calendar Range Highlight Styles */
+.calendar-day.in-selected-range {
+  background-color: var(--accent-light) !important;
+  color: var(--accent) !important;
+  border-radius: 0 !important;
+}
+
+.calendar-day.selected-range-start {
+  background-color: var(--accent) !important;
+  color: white !important;
+  border-top-left-radius: var(--radius-sm) !important;
+  border-bottom-left-radius: var(--radius-sm) !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  font-weight: 700 !important;
+}
+
+.calendar-day.selected-range-end {
+  background-color: var(--accent-light) !important;
+  color: var(--accent) !important;
+  border-top-right-radius: var(--radius-sm) !important;
+  border-bottom-right-radius: var(--radius-sm) !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  box-shadow: inset -2px 0 0 var(--accent) !important;
+}
+
+/* Hover Preview range */
+.calendar-day.in-hover-range {
+  background-color: color-mix(in srgb, var(--accent) 15%, transparent) !important;
+  color: var(--accent) !important;
+  border-radius: 0 !important;
+}
+
+.calendar-day.hover-range-start {
+  background-color: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+  color: var(--accent) !important;
+  border-top-left-radius: var(--radius-sm) !important;
+  border-bottom-left-radius: var(--radius-sm) !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.calendar-day.hover-range-end {
+  background-color: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+  color: var(--accent) !important;
+  border-top-right-radius: var(--radius-sm) !important;
+  border-bottom-right-radius: var(--radius-sm) !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
