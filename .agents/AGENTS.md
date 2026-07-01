@@ -24,3 +24,8 @@ When modifying the data model (e.g. adding or changing fields in `Trip`, `Locati
 ## Code Quality and Linting
 - The project uses `oxlint` for linting. It is extremely fast and checks for a variety of React hooks issues, syntax correctness, and TypeScript conventions.
 - Always run `npm run lint` before committing or requesting reviews.
+
+## Roadmap Management
+- Maintain a structured project roadmap in the conversation's brain folder (e.g., `roadmap.md`).
+- As features/roadmap items are completed (verified by git history or codebase implementation), update the `roadmap.md` file to cross off those items using `~~**Item**: ...~~ (Completed) style.
+
