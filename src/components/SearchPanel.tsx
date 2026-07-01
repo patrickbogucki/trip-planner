@@ -194,6 +194,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
   const detailsAbortRef = useRef<AbortController | null>(null);
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
+  const viewportCenterRef = useRef(viewportCenter);
+  const viewportBboxRef = useRef(viewportBbox);
+
+  useEffect(() => {
+    viewportCenterRef.current = viewportCenter;
+    viewportBboxRef.current = viewportBbox;
+  }, [viewportCenter, viewportBbox]);
+
   const getErrorMessage = (err: unknown, fallback: string) => {
     if (err instanceof Error && err.message) return err.message;
     return fallback;
@@ -251,11 +259,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       const abortController = new AbortController();
       suggestAbortRef.current = abortController;
       try {
-        const [lng, lat] = viewportCenter;
+        const [lng, lat] = viewportCenterRef.current;
         let url = `https://api.mapbox.com/search/searchbox/v1/suggest?q=${encodeURIComponent(query)}&access_token=${mapboxToken}&session_token=${sessionToken}&limit=5&proximity=${lng},${lat}`;
         
-        if (viewportBbox) {
-          url += `&bbox=${viewportBbox.join(',')}`;
+        if (viewportBboxRef.current) {
+          url += `&bbox=${viewportBboxRef.current.join(',')}`;
         }
 
         const response = await fetch(url, { signal: abortController.signal });
@@ -284,7 +292,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
       }
       suggestAbortRef.current?.abort();
     };
-  }, [query, mapboxToken, sessionToken, viewportCenter, viewportBbox]);
+  }, [query, mapboxToken, sessionToken]);
 
   const executeSearchQuery = async (searchQuery: string) => {
     suggestAbortRef.current?.abort();
@@ -554,10 +562,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
           </div>
           <div className="saved-list" style={{ maxHeight: '220px', overflowY: 'auto', gap: '0.4rem', paddingBottom: '0.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
             {searchResults.map((loc) => {
-              const isAlreadySaved = savedLocations.some((s) => s.id === loc.id || (Math.abs(s.lat - loc.lat) < 1e-6 && Math.abs(s.lng - loc.lng) < 1e-6));
+              const isAlreadySaved = savedLocations.some((s) => s.id === loc.id || areLocationsEquivalent(s, loc));
               const catInfo = getCategory(loc.category || 'other');
               const Icon = catInfo.icon;
-              const isActive = activeLocation?.id === loc.id || activeLocation?.id === `search-${loc.id}` || `search-${activeLocation?.id}` === loc.id;
+              const isActive = activeLocation && (activeLocation.id === loc.id || areLocationsEquivalent(activeLocation, loc));
               
               return (
                 <div

@@ -3,6 +3,7 @@ import L from 'leaflet';
 import type { Location, ItineraryItem, RouteSegment } from '../types';
 import { Compass, Globe } from 'lucide-react';
 import { getCategory } from '../utils/categories';
+import { areLocationsEquivalent } from '../utils/location';
 
 interface MapComponentProps {
   savedLocations: Location[];
@@ -157,14 +158,29 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       const markerId = loc.id;
       currentMarkerIds.add(markerId);
 
+      const isSearchResult = searchResults.some((s) => s.id === loc.id || areLocationsEquivalent(s, loc));
+
       const catInfo = getCategory(loc.category);
-      // Create a circular category icon marker with an optional sequence number badge
+      // Create a circular category icon marker with an optional sequence number badge or checkmark badge
+      let badgeHtml = '';
+      if (isItinerary) {
+        badgeHtml = `<div class="map-marker-badge">${itinIndex + 1}</div>`;
+      } else if (isSearchResult) {
+        badgeHtml = `
+          <div class="map-marker-badge search-pinned-badge" style="background-color: var(--success, #10b981); color: white; display: flex; align-items: center; justify-content: center;">
+            <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="3" fill="none" style="display: block;">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+        `;
+      }
+
       const iconHtml = `
-        <div class="map-category-marker" style="background-color: ${catInfo.color};">
+        <div class="map-category-marker ${isSearchResult ? 'is-search-pinned' : ''}" style="background-color: ${catInfo.color};">
           <svg class="map-category-svg" viewBox="0 0 24 24">
             ${catInfo.svgContent}
           </svg>
-          ${isItinerary ? `<div class="map-marker-badge">${itinIndex + 1}</div>` : ''}
+          ${badgeHtml}
         </div>
       `;
 
@@ -176,6 +192,19 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         popupAnchor: [0, -18],
       });
 
+      const tooltipText = isSearchResult ? `${loc.name} (✓ Pinned)` : loc.name;
+
+      const popupContentHtml = `
+        <div style="font-family: 'Outfit', sans-serif; padding: 4px;">
+          <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">${loc.name}</h4>
+          <p style="margin: 0; font-size: 11px; color: #64748b; max-width: 200px; line-height: 1.3;">${loc.displayName}</p>
+          <div style="margin-top: 8px; font-size: 11px; font-weight: 700; display: flex; flex-direction: column; gap: 2px;">
+            ${isItinerary ? `<span style="color: #6366f1;">Stop #${itinIndex + 1} in Itinerary</span>` : '<span style="color: #6366f1;">Saved Location</span>'}
+            ${isSearchResult ? '<span style="color: var(--success, #10b981); display: inline-flex; align-items: center; gap: 4px;"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="3" fill="none" style="display: inline-block;"><polyline points="20 6 9 17 4 12"></polyline></svg>Pinned Search Result</span>' : ''}
+          </div>
+        </div>
+      `;
+
       if (markersRef.current[markerId]) {
         // Update existing marker position & icon
         const existingMarker = markersRef.current[markerId];
@@ -185,16 +214,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         // Re-bind popup & tooltip
         existingMarker.unbindPopup();
         existingMarker.unbindTooltip();
-        existingMarker.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif; padding: 4px;">
-            <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">${loc.name}</h4>
-            <p style="margin: 0; font-size: 11px; color: #64748b; max-width: 200px; line-height: 1.3;">${loc.displayName}</p>
-            <div style="margin-top: 8px; font-size: 11px; font-weight: 700; color: #6366f1;">
-              ${isItinerary ? `Stop #${itinIndex + 1} in Itinerary` : 'Saved Location (Not in itinerary)'}
-            </div>
-          </div>
-        `);
-        existingMarker.bindTooltip(loc.name, {
+        existingMarker.bindPopup(popupContentHtml);
+        existingMarker.bindTooltip(tooltipText, {
           direction: 'top',
           offset: [0, -18],
           opacity: 0.9,
@@ -203,16 +224,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       } else {
         // Create new marker
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
-        marker.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif; padding: 4px;">
-            <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">${loc.name}</h4>
-            <p style="margin: 0; font-size: 11px; color: #64748b; max-width: 200px; line-height: 1.3;">${loc.displayName}</p>
-            <div style="margin-top: 8px; font-size: 11px; font-weight: 700; color: #6366f1;">
-              ${isItinerary ? `Stop #${itinIndex + 1} in Itinerary` : 'Saved Location'}
-            </div>
-          </div>
-        `);
-        marker.bindTooltip(loc.name, {
+        marker.bindPopup(popupContentHtml);
+        marker.bindTooltip(tooltipText, {
           direction: 'top',
           offset: [0, -18],
           opacity: 0.9,
@@ -234,7 +247,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         delete markersRef.current[id];
       }
     });
-  }, [map, savedLocations, itinerary]);
+  }, [map, savedLocations, itinerary, searchResults]);
 
   // Sync Active / Preview Location
   useEffect(() => {
@@ -248,11 +261,12 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
     if (activeLocation) {
       // Check if location is already pinned
-      const isAlreadyPinned = savedLocations.some((loc) => loc.id === activeLocation.id);
+      const matchedSavedLoc = savedLocations.find((loc) => loc.id === activeLocation.id || areLocationsEquivalent(loc, activeLocation));
+      const isAlreadyPinned = !!matchedSavedLoc;
 
-      if (isAlreadyPinned) {
+      if (isAlreadyPinned && matchedSavedLoc) {
         // If already pinned, use the existing marker
-        const existingMarker = markersRef.current[activeLocation.id];
+        const existingMarker = markersRef.current[matchedSavedLoc.id];
         map.invalidateSize();
         if (existingMarker) {
           // Pan to location
@@ -354,7 +368,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
     searchResults.forEach((loc) => {
       // Avoid duplicate search markers if the location is already saved
-      if (savedLocations.some((s) => s.id === loc.id || (Math.abs(s.lat - loc.lat) < 1e-6 && Math.abs(s.lng - loc.lng) < 1e-6))) {
+      if (savedLocations.some((s) => s.id === loc.id || areLocationsEquivalent(s, loc))) {
         return;
       }
 

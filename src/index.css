@@ -1266,6 +1266,30 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Pinned Search Result marker overrides */
+.map-category-marker.is-search-pinned {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.4), var(--shadow-md) !important;
+  animation: searchPinnedPulse 2.5s infinite;
+}
+
+@keyframes searchPinnedPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6), var(--shadow-md);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0), var(--shadow-md);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), var(--shadow-md);
+  }
+}
+
+.map-marker-badge.search-pinned-badge {
+  background: #10b981 !important;
+  border-color: #ffffff !important;
+}
+
 /* Custom Time Input Styling */
 .time-input {
   border: 1px solid var(--border-color);
