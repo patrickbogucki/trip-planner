@@ -99,7 +99,7 @@ export function generateDemoTrip(): Trip {
           durationHours: 0,
           durationMinutes: 45,
           commuteMode: 'walking' as CommuteMode,
-          startTime: '09:00'
+          lockedArrivalTime: '09:00'
         },
         {
           id: `itin-${makeId()}`,
@@ -135,7 +135,7 @@ export function generateDemoTrip(): Trip {
           durationHours: 1,
           durationMinutes: 0,
           commuteMode: 'transit' as CommuteMode,
-          startTime: '10:00'
+          lockedArrivalTime: '10:00'
         },
         {
           id: `itin-${makeId()}`,
@@ -171,7 +171,7 @@ export function generateDemoTrip(): Trip {
           durationHours: 3,
           durationMinutes: 0,
           commuteMode: 'walking' as CommuteMode,
-          startTime: '11:00'
+          lockedArrivalTime: '11:00'
         },
         {
           id: `itin-${makeId()}`,

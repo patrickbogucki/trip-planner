@@ -17,9 +17,10 @@ export interface ItineraryItem {
   durationHours: number;
   durationMinutes: number;
   commuteMode: CommuteMode; // commute mode to the NEXT location in the itinerary
-  startTime?: string; // leave time for the first stop (format "HH:MM")
   routePreference?: 'shortest' | 'fastest'; // driving route preference
-  lockedArrivalTime?: string; // fixed arrival time (e.g. a reservation) that upstream commute/duration changes cannot shift; format "HH:MM"
+  // Fixed arrival time (e.g. a reservation) that upstream commute/duration changes cannot shift; format "HH:MM".
+  // The first stop in a day always uses this (defaulting to 09:00) since it has no upstream to compute from.
+  lockedArrivalTime?: string;
 }
 
 export interface RouteSegment {
