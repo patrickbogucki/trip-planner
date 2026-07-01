@@ -88,6 +88,22 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Synchronize showSpendField state for items with existing durations
+  useEffect(() => {
+    setShowSpendField((prev) => {
+      let updated = { ...prev };
+      let changed = false;
+      itinerary.forEach((item) => {
+        const hasDuration = item.durationHours > 0 || item.durationMinutes > 0;
+        if (hasDuration && prev[item.id] === undefined) {
+          updated[item.id] = true;
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+  }, [itinerary]);
+
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
