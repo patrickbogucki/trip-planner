@@ -233,7 +233,8 @@ function App() {
 
         const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
         const profile = PROFILE_MAP[item.commuteMode] || 'driving';
-        const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${fromLoc.lng},${fromLoc.lat};${toLoc.lng},${toLoc.lat}?overview=full&geometries=geojson&access_token=${mapboxToken}`;
+        const alternativesParam = item.commuteMode === 'driving' ? '&alternatives=true' : '';
+        const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${fromLoc.lng},${fromLoc.lat};${toLoc.lng},${toLoc.lat}?overview=full&geometries=geojson${alternativesParam}&access_token=${mapboxToken}`;
 
         try {
           if (!mapboxToken) throw new Error('Mapbox token is missing');
@@ -245,7 +246,22 @@ function App() {
             throw new Error('No route found');
           }
 
-          const route = data.routes[0];
+          let route = data.routes[0];
+          if (item.commuteMode === 'driving' && data.routes.length > 1) {
+            const preference = item.routePreference || 'fastest';
+            if (preference === 'shortest') {
+              route = data.routes.reduce(
+                (min: any, r: any) => (r.distance < min.distance ? r : min),
+                data.routes[0]
+              );
+            } else {
+              route = data.routes.reduce(
+                (min: any, r: any) => (r.duration < min.duration ? r : min),
+                data.routes[0]
+              );
+            }
+          }
+
           const geometry = route.geometry.coordinates.map((coord: [number, number]) => [
             coord[1],
             coord[0],
@@ -440,6 +456,23 @@ function App() {
       const day = trip.days[targetDayIdx];
       const updatedItinerary = day.itinerary.map((item) =>
         item.id === itemId ? { ...item, commuteMode: mode } : item
+      );
+      const updatedDays = trip.days.map((d, idx) =>
+        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
+      );
+      return {
+        ...trip,
+        days: updatedDays,
+      };
+    });
+  };
+
+  const handleUpdateRoutePreference = (itemId: string, preference: 'shortest' | 'fastest') => {
+    updateActiveTrip((trip) => {
+      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const day = trip.days[targetDayIdx];
+      const updatedItinerary = day.itinerary.map((item) =>
+        item.id === itemId ? { ...item, routePreference: preference } : item
       );
       const updatedDays = trip.days.map((d, idx) =>
         idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
@@ -758,6 +791,7 @@ function App() {
               isLoadingRoutes={isLoadingRoutes}
               onUpdateDuration={handleUpdateDuration}
               onUpdateCommuteMode={handleUpdateCommuteMode}
+              onUpdateRoutePreference={handleUpdateRoutePreference}
               onReorderItinerary={handleReorderItinerary}
               onSetItinerary={handleSetItinerary}
               onRemoveFromItinerary={handleRemoveFromItinerary}

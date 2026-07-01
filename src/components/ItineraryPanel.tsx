@@ -32,6 +32,7 @@ interface ItineraryPanelProps {
   isLoadingRoutes: boolean;
   onUpdateDuration: (id: string, hours: number, minutes: number) => void;
   onUpdateCommuteMode: (id: string, mode: CommuteMode) => void;
+  onUpdateRoutePreference: (id: string, preference: 'shortest' | 'fastest') => void;
   onReorderItinerary: (index: number, direction: 'up' | 'down') => void;
   onRemoveFromItinerary: (locationId: string) => void;
   onSelectLocation: (loc: Location) => void;
@@ -58,6 +59,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   isLoadingRoutes,
   onUpdateDuration,
   onUpdateCommuteMode,
+  onUpdateRoutePreference,
   onReorderItinerary,
   onSetItinerary,
   onRemoveFromItinerary,
@@ -1062,6 +1064,27 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                             <Footprints size={14} />
                           </button>
                         </div>
+
+                        {item.commuteMode === 'driving' && (
+                          <div className="driving-preference-selector">
+                            <button
+                              type="button"
+                              className={`driving-preference-btn ${(!item.routePreference || item.routePreference === 'fastest') ? 'active' : ''}`}
+                              onClick={() => onUpdateRoutePreference(item.id, 'fastest')}
+                              title="Fastest route by travel time"
+                            >
+                              Fastest
+                            </button>
+                            <button
+                              type="button"
+                              className={`driving-preference-btn ${item.routePreference === 'shortest' ? 'active' : ''}`}
+                              onClick={() => onUpdateRoutePreference(item.id, 'shortest')}
+                              title="Shortest route by distance"
+                            >
+                              Shortest
+                            </button>
+                          </div>
+                        )}
 
                         {/* Path Details */}
                         {isLoadingRoutes ? (

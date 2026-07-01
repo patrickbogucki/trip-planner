@@ -1973,3 +1973,42 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0.95 !important;
   color: var(--accent);
 }
+
+/* Driving Route Preference Selector styles */
+.driving-preference-selector {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-primary);
+  padding: 0.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  width: fit-content;
+  align-items: center;
+}
+
+.driving-preference-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.driving-preference-btn:hover {
+  color: var(--text-primary);
+  background: var(--border-color);
+}
+
+.driving-preference-btn.active {
+  color: var(--accent);
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
