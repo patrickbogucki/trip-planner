@@ -18,7 +18,8 @@ import {
   LayoutList,
   Maximize2,
   MoreVertical,
-  Check
+  Check,
+  GripVertical
 } from 'lucide-react';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, TripDay } from '../types';
 import { getCategory, CATEGORIES } from '../utils/categories';
@@ -45,6 +46,7 @@ interface ItineraryPanelProps {
   canZoom: boolean;
   onAddToItinerary?: (locationId: string) => void;
   onInsertAtItinerary?: (locationId: string, index: number) => void;
+  onSetItinerary?: (newItinerary: ItineraryItem[]) => void;
 }
 
 export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
@@ -55,6 +57,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onUpdateDuration,
   onUpdateCommuteMode,
   onReorderItinerary,
+  onSetItinerary,
   onRemoveFromItinerary,
   onSelectLocation,
   onUpdateStartTime,
@@ -73,6 +76,14 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [tempItinerary, setTempItinerary] = useState<ItineraryItem[] | null>(null);
+
+  useEffect(() => {
+    if (draggedIndex === null) {
+      setTempItinerary(null);
+    }
+  }, [itinerary, draggedIndex]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [showSpendField, setShowSpendField] = useState<Record<string, boolean>>({});
   const [isAddingDestination, setIsAddingDestination] = useState(false);
@@ -617,31 +628,72 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
             </button>
           </div>
 
-          <div className="itinerary-list">
-            {itinerary.map((item, index) => {
-          const loc = getLocation(item.locationId);
-          if (!loc) return null;
+          <div className={`itinerary-list ${draggedIndex !== null ? 'drag-active' : ''}`}>
+            {(tempItinerary || itinerary).map((item, index) => {
+              const displayList = tempItinerary || itinerary;
+              const loc = getLocation(item.locationId);
+              if (!loc) return null;
 
-          const isFirst = index === 0;
-          const isLast = index === itinerary.length - 1;
-          const nextItem = !isLast ? itinerary[index + 1] : null;
-          const routeSegment = nextItem ? getRouteSegment(item, nextItem) : null;
-          
-          const catInfo = getCategory(loc.category);
-          const Icon = catInfo.icon;
-          const isSpendActive = (item.durationHours > 0 || item.durationMinutes > 0) || !!showSpendField[item.id];
+              const isFirst = index === 0;
+              const isLast = index === displayList.length - 1;
+              const nextItem = !isLast ? displayList[index + 1] : null;
+              const routeSegment = nextItem ? getRouteSegment(item, nextItem) : null;
+              
+              const catInfo = getCategory(loc.category);
+              const Icon = catInfo.icon;
+              const isSpendActive = (item.durationHours > 0 || item.durationMinutes > 0) || !!showSpendField[item.id];
 
-          return (
-            <div key={item.id} className={`itinerary-item-wrapper ${isCompact ? 'compact' : ''}`}>
-              {/* Itinerary Destination Card */}
-              <div 
-                className={`card itinerary-card ${isCompact ? 'itinerary-card-compact' : ''}`}
-                onClick={() => onSelectLocation(loc)}
-                style={{ cursor: 'pointer', borderLeftColor: catInfo.color }}
-              >
-                <div className="itinerary-card-header">
-                  <div className="itinerary-card-left-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-                    <div className="itinerary-card-num" style={{ background: `${catInfo.color}20`, color: catInfo.color }}>{index + 1}</div>
+              return (
+                <div 
+                  key={item.id} 
+                  className={`itinerary-item-wrapper ${isCompact ? 'compact' : ''} ${draggedIndex === index ? 'dragging' : ''}`}
+                  draggable={isCompact}
+                  onDragStart={(e) => {
+                    if (!isCompact) return;
+                    setDraggedIndex(index);
+                    setTempItinerary([...itinerary]);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', index.toString());
+                  }}
+                  onDragEnter={() => {
+                    if (!isCompact || draggedIndex === null || draggedIndex === index || !tempItinerary) return;
+                    const updated = [...tempItinerary];
+                    const [draggedItem] = updated.splice(draggedIndex, 1);
+                    updated.splice(index, 0, draggedItem);
+                    setDraggedIndex(index);
+                    setTempItinerary(updated);
+                  }}
+                  onDragOver={(e) => {
+                    if (isCompact && draggedIndex !== null) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onDragEnd={() => {
+                    if (!isCompact) return;
+                    if (tempItinerary !== null && onSetItinerary) {
+                      const orderChanged = tempItinerary.some((itm, idx) => itm.id !== itinerary[idx]?.id);
+                      if (orderChanged) {
+                        onSetItinerary(tempItinerary);
+                      }
+                    }
+                    setDraggedIndex(null);
+                    setTempItinerary(null);
+                  }}
+                >
+                  {/* Itinerary Destination Card */}
+                  <div 
+                    className={`card itinerary-card ${isCompact ? 'itinerary-card-compact' : ''}`}
+                    onClick={() => onSelectLocation(loc)}
+                    style={{ cursor: 'pointer', borderLeftColor: catInfo.color }}
+                  >
+                    <div className="itinerary-card-header">
+                      <div className="itinerary-card-left-column" style={{ display: 'flex', flexDirection: isCompact ? 'row' : 'column', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                        {isCompact && (
+                          <div className="drag-handle" style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', opacity: 0.5, cursor: 'grab' }}>
+                            <GripVertical size={14} />
+                          </div>
+                        )}
+                        <div className="itinerary-card-num" style={{ background: `${catInfo.color}20`, color: catInfo.color }}>{index + 1}</div>
                     
                     {!isCompact && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }} onClick={(e) => e.stopPropagation()}>

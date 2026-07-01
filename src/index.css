@@ -1949,3 +1949,27 @@ h1, h2, h3, h4, h5, h6 {
 .leaflet-tooltip-top.map-tooltip:before {
   border-top-color: var(--bg-secondary) !important;
 }
+
+/* Drag to Reorder Styles */
+.itinerary-list.drag-active .itinerary-item-wrapper * {
+  pointer-events: none;
+}
+
+.itinerary-item-wrapper.dragging {
+  opacity: 0.45;
+  transform: scale(0.98);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.itinerary-card:hover .drag-handle {
+  opacity: 0.95 !important;
+  color: var(--accent);
+}

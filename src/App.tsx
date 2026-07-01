@@ -500,6 +500,19 @@ function App() {
     });
   };
 
+  const handleSetItinerary = (newItinerary: ItineraryItem[]) => {
+    updateActiveTrip((trip) => {
+      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const updatedDays = trip.days.map((d, idx) =>
+        idx === targetDayIdx ? { ...d, itinerary: newItinerary } : d
+      );
+      return {
+        ...trip,
+        days: updatedDays,
+      };
+    });
+  };
+
   const handleRemoveFromItinerary = (locationId: string) => {
     updateActiveTrip((trip) => {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
@@ -725,6 +738,7 @@ function App() {
               onUpdateDuration={handleUpdateDuration}
               onUpdateCommuteMode={handleUpdateCommuteMode}
               onReorderItinerary={handleReorderItinerary}
+              onSetItinerary={handleSetItinerary}
               onRemoveFromItinerary={handleRemoveFromItinerary}
               onSelectLocation={setActiveLocation}
               onUpdateStartTime={handleUpdateStartTime}
