@@ -18,7 +18,8 @@ import {
   LayoutList,
   Maximize2,
   MoreVertical,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, TripDay } from '../types';
 import { getCategory, CATEGORIES } from '../utils/categories';
@@ -45,6 +46,7 @@ interface ItineraryPanelProps {
   canZoom: boolean;
   onAddToItinerary?: (locationId: string) => void;
   onInsertAtItinerary?: (locationId: string, index: number) => void;
+  onLoadDemoTrip?: () => void;
 }
 
 export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
@@ -69,6 +71,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   canZoom,
   onAddToItinerary,
   onInsertAtItinerary,
+  onLoadDemoTrip,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
@@ -600,7 +603,26 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
       </div>
 
       {/* Itinerary Stop cards / Empty state check */}
-      {itinerary.length === 0 ? (
+      {savedLocations.length === 0 && itinerary.length === 0 ? (
+        <div className="empty-state" style={{ margin: '2rem 0', padding: '1.5rem', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+          <Calendar className="empty-state-icon" style={{ color: 'var(--primary)' }} />
+          <h3>Welcome to Trip Planner!</h3>
+          <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
+            Start from a clean slate by searching for locations in the <strong>Search & Pins</strong> tab, or load a pre-configured demo trip to explore features.
+          </p>
+          {onLoadDemoTrip && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onLoadDemoTrip}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#8b5cf6', borderColor: '#8b5cf6' }}
+            >
+              <Sparkles size={16} />
+              <span>Load NYC Demo Trip</span>
+            </button>
+          )}
+        </div>
+      ) : itinerary.length === 0 ? (
         <div className="empty-state" style={{ margin: '2rem 0' }}>
           <Calendar className="empty-state-icon" />
           <h3>Itinerary is empty for Day {activeDayIndex + 1}</h3>
