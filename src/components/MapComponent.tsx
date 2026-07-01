@@ -40,6 +40,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const searchMarkersRef = useRef<{ [id: string]: L.Marker }>({});
   const polylineGroupRef = useRef<L.FeatureGroup | null>(null);
   const previewMarkerRef = useRef<L.Marker | null>(null);
+  const isFirstLoadRef = useRef(true);
 
   const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
@@ -534,6 +535,48 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       }
     }
   };
+
+  // Auto-zoom to fit active day's stops on initial map load or when the set of itinerary locations changes
+  useEffect(() => {
+    if (!map) return;
+
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      const bounds = L.latLngBounds([]);
+      
+      itinerary.forEach((item) => {
+        const loc = savedLocations.find((l) => l.id === item.locationId);
+        if (loc) {
+          bounds.extend([loc.lat, loc.lng]);
+        }
+      });
+
+      const isFirstLoad = isFirstLoadRef.current;
+      if (isFirstLoad) {
+        isFirstLoadRef.current = false;
+      }
+
+      const zoomOptions: L.FitBoundsOptions = {
+        padding: [60, 60],
+        maxZoom: 15,
+        animate: !isFirstLoad,
+        duration: isFirstLoad ? 0 : 0.8,
+      };
+
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, zoomOptions);
+      } else if (savedLocations.length > 0) {
+        const allBounds = L.latLngBounds([]);
+        savedLocations.forEach((loc) => allBounds.extend([loc.lat, loc.lng]));
+        if (allBounds.isValid()) {
+          map.fitBounds(allBounds, zoomOptions);
+        }
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, itinerary.map((item) => item.locationId).join(','), savedLocations.map((l) => l.id).join(',')]);
 
   // Register the zoom function with the parent whenever map or deps change
   useEffect(() => {
