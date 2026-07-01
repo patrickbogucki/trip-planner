@@ -182,8 +182,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         existingMarker.setLatLng([loc.lat, loc.lng]);
         existingMarker.setIcon(customIcon);
         
-        // Re-bind popup
+        // Re-bind popup & tooltip
         existingMarker.unbindPopup();
+        existingMarker.unbindTooltip();
         existingMarker.bindPopup(`
           <div style="font-family: 'Outfit', sans-serif; padding: 4px;">
             <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">${loc.name}</h4>
@@ -193,6 +194,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             </div>
           </div>
         `);
+        existingMarker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+          direction: 'top',
+          offset: [0, -18],
+          opacity: 0.9,
+        });
       } else {
         // Create new marker
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
@@ -205,6 +211,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             </div>
           </div>
         `);
+        marker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+          direction: 'top',
+          offset: [0, -18],
+          opacity: 0.9,
+        });
 
         marker.on('click', () => {
           onSelectLocation(loc);
@@ -314,6 +325,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         popupContent.appendChild(btn);
 
         previewMarker.bindPopup(popupContent);
+        previewMarker.bindTooltip(`<div class="map-tooltip">${activeLocation.name}</div>`, {
+          direction: 'top',
+          offset: [0, -18],
+          opacity: 0.9,
+        });
         previewMarkerRef.current = previewMarker;
 
         map.invalidateSize();
@@ -362,6 +378,12 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         const existingMarker = searchMarkersRef.current[markerId];
         existingMarker.setLatLng([loc.lat, loc.lng]);
         existingMarker.setIcon(customIcon);
+        existingMarker.unbindTooltip();
+        existingMarker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+          direction: 'top',
+          offset: [0, -16],
+          opacity: 0.9,
+        });
       } else {
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
 
@@ -404,6 +426,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         popupContent.appendChild(btn);
 
         marker.bindPopup(popupContent);
+        marker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+          direction: 'top',
+          offset: [0, -16],
+          opacity: 0.9,
+        });
 
         marker.on('click', () => {
           onSelectLocation(loc);
