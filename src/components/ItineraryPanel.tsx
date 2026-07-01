@@ -20,7 +20,9 @@ import {
   MoreVertical,
   Check,
   GripVertical,
-  Sparkles
+  Sparkles,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, TripDay } from '../types';
 import { getCategory, CATEGORIES } from '../utils/categories';
@@ -37,6 +39,7 @@ interface ItineraryPanelProps {
   onRemoveFromItinerary: (locationId: string) => void;
   onSelectLocation: (loc: Location) => void;
   onUpdateStartTime: (id: string, startTime: string) => void;
+  onUpdateLockedArrivalTime: (id: string, lockedArrivalTime: string | null) => void;
   tripDate?: string;
   onUpdateTripDate: (date: string) => void;
   days: TripDay[];
@@ -65,6 +68,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onRemoveFromItinerary,
   onSelectLocation,
   onUpdateStartTime,
+  onUpdateLockedArrivalTime,
   tripDate,
   onUpdateTripDate,
   days,
@@ -391,24 +395,38 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     return `${displayHours}:${displayMinutes} ${ampm}`;
   };
 
-  // Pre-calculate chronological times for itinerary stops
-  const computedTimes: { [id: string]: { arrive: string; leave: string } } = {};
+  // Helper to format minutes since midnight into a "HH:MM" value suitable for a <input type="time">
+  const minutesToInputTime = (totalMinutes: number): string => {
+    const normalized = (totalMinutes % (24 * 60) + 24 * 60) % (24 * 60);
+    const hours = Math.floor(normalized / 60).toString().padStart(2, '0');
+    const minutes = (normalized % 60).toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  // Pre-calculate chronological times for itinerary stops. A stop with `lockedArrivalTime` set
+  // (e.g. a restaurant reservation) always arrives at that exact time — commute/duration changes
+  // upstream cannot shift it. If the natural arrival (previous leave + commute) would be later than
+  // the locked time, that gap is surfaced as a conflict instead of silently overriding the lock.
+  const computedTimes: { [id: string]: { arrive: string; leave: string; arriveMinutes: number; isLocked: boolean; conflictMinutes: number } } = {};
   if (itinerary.length > 0) {
     const firstItem = itinerary[0];
     const firstStartMinutes = timeToMinutes(firstItem.startTime || '09:00');
     const firstStayMinutes = firstItem.durationHours * 60 + firstItem.durationMinutes;
     let currentMinutes = firstStartMinutes + firstStayMinutes;
-    
+
     computedTimes[firstItem.id] = {
       arrive: formatMinutesToTime(firstStartMinutes),
       leave: formatMinutesToTime(currentMinutes),
+      arriveMinutes: firstStartMinutes,
+      isLocked: false,
+      conflictMinutes: 0,
     };
-    
+
     for (let i = 0; i < itinerary.length - 1; i++) {
       const item = itinerary[i];
       const nextItem = itinerary[i + 1];
       const route = getRouteSegment(item, nextItem);
-      
+
       let commuteMinutes = 0;
       if (route) {
         commuteMinutes = Math.round(route.duration / 60);
@@ -427,14 +445,20 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
           commuteMinutes = Math.round((dist / speed) / 60);
         }
       }
-      
-      const arrivalMinutes = currentMinutes + commuteMinutes;
+
+      const naturalArrivalMinutes = currentMinutes + commuteMinutes;
+      const isLocked = !!nextItem.lockedArrivalTime;
+      const arrivalMinutes = isLocked ? timeToMinutes(nextItem.lockedArrivalTime!) : naturalArrivalMinutes;
+      const conflictMinutes = isLocked ? Math.max(0, naturalArrivalMinutes - arrivalMinutes) : 0;
       const stayMinutes = nextItem.durationHours * 60 + nextItem.durationMinutes;
       currentMinutes = arrivalMinutes + stayMinutes;
-      
+
       computedTimes[nextItem.id] = {
         arrive: formatMinutesToTime(arrivalMinutes),
         leave: formatMinutesToTime(currentMinutes),
+        arriveMinutes: arrivalMinutes,
+        isLocked,
+        conflictMinutes,
       };
     }
   }
@@ -843,11 +867,52 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }} onClick={(e) => e.stopPropagation()}>
                               <span style={{ fontWeight: 600, color: 'var(--success)' }}>Arrive:</span>
-                              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.arrive}</span>
+                              {item.lockedArrivalTime ? (
+                                <input
+                                  type="time"
+                                  value={item.lockedArrivalTime}
+                                  onChange={(e) => onUpdateLockedArrivalTime(item.id, e.target.value)}
+                                  style={{
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: 'var(--bg-primary)',
+                                    color: 'var(--text-primary)',
+                                    fontFamily: 'var(--font-sans)',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '700',
+                                    padding: '0.1rem 0.25rem',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                  }}
+                                />
+                              ) : (
+                                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.arrive}</span>
+                              )}
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-icon-only"
+                                style={{ width: '1.15rem', height: '1.15rem', padding: 0, opacity: item.lockedArrivalTime ? 1 : 0.5 }}
+                                onClick={() =>
+                                  onUpdateLockedArrivalTime(
+                                    item.id,
+                                    item.lockedArrivalTime ? null : minutesToInputTime(computedTimes[item.id]?.arriveMinutes ?? 0)
+                                  )
+                                }
+                                title={item.lockedArrivalTime ? 'Unlock arrival time' : 'Lock arrival time (e.g. a reservation)'}
+                              >
+                                {item.lockedArrivalTime ? <Lock size={11} /> : <Unlock size={11} />}
+                              </button>
                             </div>
-                            
+
+                            {(computedTimes[item.id]?.conflictMinutes ?? 0) > 0 && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <AlertTriangle size={12} />
+                                <span>Running {computedTimes[item.id].conflictMinutes}m late for this arrival time</span>
+                              </div>
+                            )}
+
                             {isSpendActive && (
                               <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
                                 <Clock size={14} className="text-muted" />
@@ -897,8 +962,15 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                     {isCompact && (
                       <div className="itinerary-compact-meta">
                         {!isFirst && computedTimes[item.id]?.arrive && (
-                          <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)' }}>
+                          <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                            {item.lockedArrivalTime && <Lock size={10} />}
                             Arrive: {computedTimes[item.id].arrive}
+                          </span>
+                        )}
+                        {(computedTimes[item.id]?.conflictMinutes ?? 0) > 0 && (
+                          <span className="compact-time-badge" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                            <AlertTriangle size={10} />
+                            {computedTimes[item.id].conflictMinutes}m late
                           </span>
                         )}
                         {(item.durationHours > 0 || item.durationMinutes > 0) && (

@@ -501,6 +501,23 @@ function App() {
     });
   };
 
+  const handleUpdateLockedArrivalTime = (itemId: string, lockedArrivalTime: string | null) => {
+    updateActiveTrip((trip) => {
+      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const day = trip.days[targetDayIdx];
+      const updatedItinerary = day.itinerary.map((item) =>
+        item.id === itemId ? { ...item, lockedArrivalTime: lockedArrivalTime || undefined } : item
+      );
+      const updatedDays = trip.days.map((d, idx) =>
+        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
+      );
+      return {
+        ...trip,
+        days: updatedDays,
+      };
+    });
+  };
+
   const handleUpdateStartDate = (date: string) => {
     updateActiveTrip((trip) => {
       // Parse start date and cascade each subsequent day
@@ -797,6 +814,7 @@ function App() {
               onRemoveFromItinerary={handleRemoveFromItinerary}
               onSelectLocation={setActiveLocation}
               onUpdateStartTime={handleUpdateStartTime}
+              onUpdateLockedArrivalTime={handleUpdateLockedArrivalTime}
               tripDate={activeTrip?.days?.[0]?.date || ''}
               onUpdateTripDate={handleUpdateStartDate}
               days={activeTrip?.days || []}
