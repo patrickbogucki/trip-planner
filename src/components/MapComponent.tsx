@@ -115,60 +115,6 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       mapInstance.invalidateSize();
     }, 100);
 
-    // Handle map click to drop custom pins
-    mapInstance.on('click', async (e: L.LeafletMouseEvent) => {
-      const { lat, lng } = e.latlng;
-      
-      if (!mapboxToken) {
-        const clickedLoc: Location = {
-          id: `loc-clicked-${Date.now()}`,
-          name: 'Custom Pin',
-          displayName: `Location at ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-          lat,
-          lng,
-        };
-        onSelectLocation(clickedLoc);
-        return;
-      }
-
-      // Perform reverse geocoding via Mapbox
-      try {
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&limit=1`
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          const feature = data.features && data.features[0];
-          const name = feature?.text || 'Custom Pin';
-          const displayName = feature?.place_name || `Location at ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-          
-          const clickedLoc: Location = {
-            id: `loc-clicked-${Date.now()}`,
-            name,
-            displayName,
-            lat,
-            lng,
-          };
-          
-          onSelectLocation(clickedLoc);
-        } else {
-          throw new Error('Reverse geocoding request failed');
-        }
-      } catch (err) {
-        console.error('Error reverse geocoding:', err);
-        // Fallback to coordinates
-        const clickedLoc: Location = {
-          id: `loc-clicked-${Date.now()}`,
-          name: 'Custom Pin',
-          displayName: `Location at ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-          lat,
-          lng,
-        };
-        onSelectLocation(clickedLoc);
-      }
-    });
-
     return () => {
       mapInstance.remove();
       setMap(null);
