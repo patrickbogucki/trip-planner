@@ -6,6 +6,7 @@ import { MapComponent } from './components/MapComponent';
 import { TripSelector } from './components/TripSelector';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, Trip, LocationCategory, TripDay } from './types';
 import { areLocationsEquivalent } from './utils/location';
+import { generateDemoTrip } from './utils/dummyData';
 
 // Mapbox Profile Mapping
 const PROFILE_MAP: Record<string, string> = {
@@ -648,6 +649,14 @@ function App() {
     setActiveLocation(null);
   };
 
+  const handleLoadDemoTrip = () => {
+    const demoTrip = generateDemoTrip();
+    setTrips((prev) => [...prev, demoTrip]);
+    setActiveTripId(demoTrip.id);
+    setActiveDayIndex(0);
+    setActiveLocation(null);
+  };
+
   const handleRenameTrip = (id: string, newName: string) => {
     setTrips((prev) =>
       prev.map((t) => (t.id === id ? { ...t, name: newName } : t))
@@ -703,6 +712,7 @@ function App() {
           onCreateTrip={handleCreateTrip}
           onRenameTrip={handleRenameTrip}
           onDeleteTrip={handleDeleteTrip}
+          onLoadDemoTrip={handleLoadDemoTrip}
         />
 
         {/* Tab Selection */}
@@ -764,6 +774,7 @@ function App() {
               canZoom={savedLocations.length > 0}
               onAddToItinerary={(locId) => handleAddToItinerary(locId, activeDayIndex)}
               onInsertAtItinerary={(locId, idx) => handleInsertAtItinerary(locId, idx, activeDayIndex)}
+              onLoadDemoTrip={handleLoadDemoTrip}
             />
           )}
         </div>

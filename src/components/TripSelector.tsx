@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Briefcase, Plus, Edit2, Trash2, Check, X, ChevronDown, MoreVertical } from 'lucide-react';
+import { Briefcase, Plus, Edit2, Trash2, Check, X, ChevronDown, MoreVertical, Sparkles } from 'lucide-react';
 import type { Trip } from '../types';
 
 /** Formats the date range of a trip for display. Returns null if no dates set. */
@@ -49,6 +49,7 @@ interface TripSelectorProps {
   onCreateTrip: (name: string) => void;
   onRenameTrip: (id: string, newName: string) => void;
   onDeleteTrip: (id: string) => void;
+  onLoadDemoTrip: () => void;
 }
 
 export const TripSelector: React.FC<TripSelectorProps> = ({
@@ -58,6 +59,7 @@ export const TripSelector: React.FC<TripSelectorProps> = ({
   onCreateTrip,
   onRenameTrip,
   onDeleteTrip,
+  onLoadDemoTrip,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -289,6 +291,18 @@ export const TripSelector: React.FC<TripSelectorProps> = ({
                   >
                     <Plus size={14} />
                     <span>New Trip</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onLoadDemoTrip();
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    <Sparkles size={14} style={{ color: '#8b5cf6' }} />
+                    <span>Load Demo Trip</span>
                   </button>
                 </li>
                 <li>

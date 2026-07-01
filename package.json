@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node scripts/setup-worktree.js && vite",
+    "build": "node scripts/setup-worktree.js && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
