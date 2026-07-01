@@ -194,10 +194,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             </div>
           </div>
         `);
-        existingMarker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+        existingMarker.bindTooltip(loc.name, {
           direction: 'top',
           offset: [0, -18],
           opacity: 0.9,
+          className: 'map-tooltip',
         });
       } else {
         // Create new marker
@@ -211,10 +212,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             </div>
           </div>
         `);
-        marker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+        marker.bindTooltip(loc.name, {
           direction: 'top',
           offset: [0, -18],
           opacity: 0.9,
+          className: 'map-tooltip',
         });
 
         marker.on('click', () => {
@@ -325,10 +327,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         popupContent.appendChild(btn);
 
         previewMarker.bindPopup(popupContent);
-        previewMarker.bindTooltip(`<div class="map-tooltip">${activeLocation.name}</div>`, {
+        previewMarker.bindTooltip(activeLocation.name, {
           direction: 'top',
           offset: [0, -18],
           opacity: 0.9,
+          className: 'map-tooltip',
         });
         previewMarkerRef.current = previewMarker;
 
@@ -379,10 +382,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         existingMarker.setLatLng([loc.lat, loc.lng]);
         existingMarker.setIcon(customIcon);
         existingMarker.unbindTooltip();
-        existingMarker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+        existingMarker.bindTooltip(loc.name, {
           direction: 'top',
           offset: [0, -16],
           opacity: 0.9,
+          className: 'map-tooltip',
         });
       } else {
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
@@ -426,10 +430,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         popupContent.appendChild(btn);
 
         marker.bindPopup(popupContent);
-        marker.bindTooltip(`<div class="map-tooltip">${loc.name}</div>`, {
+        marker.bindTooltip(loc.name, {
           direction: 'top',
           offset: [0, -16],
           opacity: 0.9,
+          className: 'map-tooltip',
         });
 
         marker.on('click', () => {
