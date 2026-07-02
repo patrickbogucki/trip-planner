@@ -29,3 +29,10 @@ When modifying the data model (e.g. adding or changing fields in `Trip`, `Locati
 - Maintain a structured project roadmap in the conversation's brain folder (e.g., `roadmap.md`).
 - As features/roadmap items are completed (verified by git history or codebase implementation), update the `roadmap.md` file to cross off those items using `~~**Item**: ...~~ (Completed) style.
 
+## Dev Server Management and Testing
+- **Run Dev Server on Completion**: Once you complete your implementation and verify that the build compiles, you MUST check if a dev server is already running in this worktree/workspace using `npm run dev:status`.
+- **Start Dev Server**: If it is not running, start it using `npm run dev:start`. This launches a detached background process so it runs asynchronously without blocking your execution.
+- **Stop Dev Server on Merge**: If you are merging code to `main` or completing merge/cleanup tasks, you MUST stop the dev server if it is running by executing `npm run dev:stop`.
+- **Shutdown Easily**: Provide users the command `npm run dev:stop` as an easy way to shut down the server.
+
+

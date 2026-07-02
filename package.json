@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/setup-worktree.js && vite",
+    "dev:start": "node scripts/manage-dev.js start",
+    "dev:stop": "node scripts/manage-dev.js stop",
+    "dev:status": "node scripts/manage-dev.js status",
     "build": "node scripts/setup-worktree.js && tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.21",
@@ -17,6 +21,7 @@
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

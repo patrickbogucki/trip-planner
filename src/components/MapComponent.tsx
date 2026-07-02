@@ -55,9 +55,12 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     const mapInstance = L.map(mapContainerRef.current, {
       center: [40.7128, -74.006], // Default NYC center
       zoom: 12,
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false, // Clean UI, custom watermark is enough
     });
+
+    // Add zoom control at bottom right
+    L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
 
     // Create the Leaflet tile layers using Mapbox styles (or OSM/Esri fallback if token is missing)
     const streetLayerUrl = mapboxToken
