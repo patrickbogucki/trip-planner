@@ -32,7 +32,8 @@ interface ItineraryPanelProps {
   isLoadingRoutes: boolean;
   onUpdateDuration: (id: string, hours: number, minutes: number) => void;
   onUpdateCommuteMode: (id: string, mode: CommuteMode) => void;
-  onUpdateRoutePreference: (id: string, preference: 'shortest' | 'fastest') => void;
+  routePreference?: 'shortest' | 'fastest';
+  onUpdateRoutePreference: (preference: 'shortest' | 'fastest') => void;
   onReorderItinerary: (index: number, direction: 'up' | 'down') => void;
   onRemoveFromItinerary: (locationId: string) => void;
   onSelectLocation: (loc: Location) => void;
@@ -59,6 +60,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   isLoadingRoutes,
   onUpdateDuration,
   onUpdateCommuteMode,
+  routePreference,
   onUpdateRoutePreference,
   onReorderItinerary,
   onSetItinerary,
@@ -644,7 +646,16 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
       ) : (
         <>
           {/* Compact toggle + Zoom button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', alignItems: 'center' }}>
+            <select
+              value={routePreference}
+              onChange={(e) => onUpdateRoutePreference(e.target.value as 'shortest' | 'fastest')}
+              className="route-preference-dropdown"
+              title="Driving route preference for all routes on the trip"
+            >
+              <option value="fastest">Fastest Route</option>
+              <option value="shortest">Shortest Route</option>
+            </select>
             <button
               type="button"
               className="compact-toggle-btn"
@@ -1065,26 +1076,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                           </button>
                         </div>
 
-                        {item.commuteMode === 'driving' && (
-                          <div className="driving-preference-selector">
-                            <button
-                              type="button"
-                              className={`driving-preference-btn ${(!item.routePreference || item.routePreference === 'fastest') ? 'active' : ''}`}
-                              onClick={() => onUpdateRoutePreference(item.id, 'fastest')}
-                              title="Fastest route by travel time"
-                            >
-                              Fastest
-                            </button>
-                            <button
-                              type="button"
-                              className={`driving-preference-btn ${item.routePreference === 'shortest' ? 'active' : ''}`}
-                              onClick={() => onUpdateRoutePreference(item.id, 'shortest')}
-                              title="Shortest route by distance"
-                            >
-                              Shortest
-                            </button>
-                          </div>
-                        )}
+
 
                         {/* Path Details */}
                         {isLoadingRoutes ? (
