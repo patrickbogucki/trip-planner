@@ -217,6 +217,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           </>
         )}
+
+        {/* Version Info Footer */}
+        <div style={{ marginTop: 'auto', paddingTop: '1.5rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+          Horizon v1.1
+        </div>
       </div>
     </div>
   );

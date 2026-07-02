@@ -797,14 +797,7 @@ function App() {
       />
 
       {/* Side Control Panel */}
-      <aside className="sidebar">
-        <div className="sidebar-header" style={{ paddingBottom: '0.75rem', borderBottom: 'none' }}>
-          <div className="brand">
-            <h1>{activeTab === 'itinerary' ? 'Itinerary' : 'Saved & Search'}</h1>
-          </div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Horizon v1.1</span>
-        </div>
-
+      <aside className="sidebar" style={{ paddingTop: '1.25rem' }}>
         {storageError && (
           <div
             className="card"
