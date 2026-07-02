@@ -58,9 +58,9 @@ test.describe('Global Route Preference Selector', () => {
     await driveBtn.click();
 
     // Verify the global route preference selector is rendered next to the 'Fit Map' button
-    const dropdown = page.locator('.route-preference-dropdown');
-    await expect(dropdown).toBeVisible();
-    await expect(dropdown).toHaveValue('fastest');
+    const dropdownTrigger = page.getByTitle('Driving route preference for all routes on the trip');
+    await expect(dropdownTrigger).toBeVisible();
+    await expect(dropdownTrigger).toContainText('Fastest Route');
 
     // By default, the preference is "fastest". The route stats should show the duration-optimal route (2.0 km, 1 min)
     const statsContainer = page.locator('.connection-stats');
@@ -68,9 +68,14 @@ test.describe('Global Route Preference Selector', () => {
     await expect(statsContainer).toContainText('2.0 km');
     await expect(statsContainer).toContainText('1 min');
 
-    // Change dropdown selection to 'Shortest Route'
-    await dropdown.selectOption('shortest');
-    await expect(dropdown).toHaveValue('shortest');
+    // Open the dropdown menu and select 'Shortest Route'
+    await dropdownTrigger.click();
+    const shortestOption = page.getByRole('option', { name: 'Shortest Route' });
+    await expect(shortestOption).toBeVisible();
+    await shortestOption.click();
+
+    // Verify trigger text updates
+    await expect(dropdownTrigger).toContainText('Shortest Route');
 
     // Verify that the route is recalculated and updates to the distance-optimal route (1.0 km, 2 min)
     await expect(statsContainer).toContainText('1.0 km');

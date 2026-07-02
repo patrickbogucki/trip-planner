@@ -2058,3 +2058,56 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
+
+/* Route Preference Custom Dropdown */
+.route-preference-custom-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.route-preference-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: 140px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  z-index: 1000;
+  animation: trip-slide-down-fade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.route-preference-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.65rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-weight: 600;
+  gap: 0.5rem;
+}
+
+.route-preference-item:hover {
+  background-color: var(--bg-primary);
+  color: var(--accent);
+}
+
+.route-preference-item.selected {
+  color: var(--accent);
+  background-color: var(--accent-light);
+}
+
+.route-preference-checkmark {
+  color: var(--accent);
+  flex-shrink: 0;
+}
