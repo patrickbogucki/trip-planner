@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/setup-worktree.js && vite",
+    "dev:start": "node scripts/manage-dev.js start",
+    "dev:stop": "node scripts/manage-dev.js stop",
+    "dev:status": "node scripts/manage-dev.js status",
     "build": "node scripts/setup-worktree.js && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
