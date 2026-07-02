@@ -18,7 +18,6 @@ export interface ItineraryItem {
   durationMinutes: number;
   commuteMode: CommuteMode; // commute mode to the NEXT location in the itinerary
   startTime?: string; // leave time for the first stop (format "HH:MM")
-  routePreference?: 'shortest' | 'fastest'; // driving route preference
 }
 
 export interface RouteSegment {
@@ -45,4 +44,5 @@ export interface Trip {
   itinerary?: ItineraryItem[]; // legacy single-day fallback for migration
   date?: string; // legacy start-date fallback for migration
   days: TripDay[];
+  routePreference?: 'shortest' | 'fastest'; // driving route preference
 }

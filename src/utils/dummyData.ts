@@ -189,6 +189,7 @@ export function generateDemoTrip(): Trip {
     name: 'NYC Weekend Getaway (Demo)',
     createdAt: Date.now(),
     savedLocations: locations,
-    days
+    days,
+    routePreference: 'fastest'
   };
 }
