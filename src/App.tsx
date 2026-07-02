@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Compass, Calendar } from 'lucide-react';
 import { SearchPanel } from './components/SearchPanel';
 import { ItineraryPanel } from './components/ItineraryPanel';
 import { MapComponent } from './components/MapComponent';
 import { TripSelector } from './components/TripSelector';
+import { MiniSidebar } from './components/MiniSidebar';
+import { SettingsPanel } from './components/SettingsPanel';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, Trip, LocationCategory, TripDay } from './types';
 import { areLocationsEquivalent } from './utils/location';
 import { generateDemoTrip } from './utils/dummyData';
@@ -31,6 +32,22 @@ const parseLocalStorageJson = <T,>(key: string): T | null => {
 
 function App() {
   const [activeTab, setActiveTab] = useState<'search' | 'itinerary'>('itinerary');
+  
+  // Settings & Preferences States
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
+    return (localStorage.getItem('horizon_theme') as 'system' | 'light' | 'dark') || 'system';
+  });
+  const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>(() => {
+    return (localStorage.getItem('horizon_distance_unit') as 'km' | 'mi') || 'km';
+  });
+  const [defaultCommuteMode, setDefaultCommuteMode] = useState<CommuteMode>(() => {
+    return (localStorage.getItem('horizon_default_commute_mode') as CommuteMode) || 'driving';
+  });
+  const [userMapboxToken, setUserMapboxToken] = useState<string>(() => {
+    return localStorage.getItem('horizon_mapbox_token') || '';
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const [activeLocation, setActiveLocation] = useState<Location | null>(null);
   const [routes, setRoutes] = useState<RouteSegment[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
@@ -164,6 +181,31 @@ function App() {
     setActiveDayIndex(0);
   }, [activeTripId]);
 
+  // Sync settings states to localStorage
+  useEffect(() => {
+    localStorage.setItem('horizon_theme', theme);
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.setAttribute('data-theme', 'dark');
+    } else if (theme === 'light') {
+      root.setAttribute('data-theme', 'light');
+    } else {
+      root.removeAttribute('data-theme');
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('horizon_distance_unit', distanceUnit);
+  }, [distanceUnit]);
+
+  useEffect(() => {
+    localStorage.setItem('horizon_default_commute_mode', defaultCommuteMode);
+  }, [defaultCommuteMode]);
+
+  useEffect(() => {
+    localStorage.setItem('horizon_mapbox_token', userMapboxToken);
+  }, [userMapboxToken]);
+
   // Active Trip references
   const activeTrip = trips.find((t) => t.id === activeTripId) || trips[0];
   const savedLocations = activeTrip ? activeTrip.savedLocations : [];
@@ -231,7 +273,7 @@ function App() {
           };
         }
 
-        const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+        const mapboxToken = userMapboxToken || import.meta.env.VITE_MAPBOX_TOKEN || '';
         const profile = PROFILE_MAP[item.commuteMode] || 'driving';
         const alternativesParam = item.commuteMode === 'driving' ? '&alternatives=true' : '';
         const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${fromLoc.lng},${fromLoc.lat};${toLoc.lng},${toLoc.lat}?overview=full&geometries=geojson${alternativesParam}&access_token=${mapboxToken}`;
@@ -314,7 +356,7 @@ function App() {
     return () => {
       abortController.abort();
     };
-  }, [itinerary, savedLocations]);
+  }, [itinerary, savedLocations, userMapboxToken]);
 
   // Operations: Saved Pinned Locations
   const handleAddLocation = (loc: Location) => {
@@ -395,7 +437,7 @@ function App() {
         locationId: locationId,
         durationHours: 1, // Default spend: 1hr
         durationMinutes: 0,
-        commuteMode: 'driving',
+        commuteMode: defaultCommuteMode,
       };
       const updatedDays = trip.days.map((d, idx) =>
         idx === dayIndex ? { ...d, itinerary: [...d.itinerary, newItem] } : d
@@ -416,7 +458,7 @@ function App() {
         locationId: locationId,
         durationHours: 1, // Default spend: 1hr
         durationMinutes: 0,
-        commuteMode: 'driving',
+        commuteMode: defaultCommuteMode,
       };
       const updatedItinerary = [...day.itinerary];
       updatedItinerary.splice(insertIndex, 0, newItem);
@@ -711,16 +753,62 @@ function App() {
     setActiveLocation(null);
   };
 
+  const handleImportTrip = (importedTrip: Trip) => {
+    setTrips((prev) => {
+      if (prev.some((t) => t.id === importedTrip.id)) {
+        return prev.map((t) => (t.id === importedTrip.id ? importedTrip : t));
+      }
+      return [...prev, importedTrip];
+    });
+    setActiveTripId(importedTrip.id);
+    setActiveDayIndex(0);
+    setIsSettingsOpen(false);
+  };
+
+  const handleResetApp = () => {
+    if (window.confirm("Are you sure you want to reset all trip planning data? This will restore the demo state.")) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="app-container">
+      {/* Left Mini Navigation Sidebar */}
+      <MiniSidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          setIsSettingsOpen(false);
+        }}
+        onSettingsClick={() => setIsSettingsOpen(!isSettingsOpen)}
+        isSettingsOpen={isSettingsOpen}
+      />
+
+      {/* Settings Drawer overlay */}
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
+        defaultCommuteMode={defaultCommuteMode}
+        onDefaultCommuteModeChange={setDefaultCommuteMode}
+        mapboxToken={userMapboxToken}
+        onMapboxTokenChange={setUserMapboxToken}
+        activeTrip={activeTrip}
+        onImportTrip={handleImportTrip}
+        onResetApp={handleResetApp}
+      />
+
       {/* Side Control Panel */}
       <aside className="sidebar">
         <div className="sidebar-header" style={{ paddingBottom: '0.75rem', borderBottom: 'none' }}>
           <div className="brand">
-            <Compass className="brand-icon" />
-            <h1>Horizon</h1>
+            <h1>{activeTab === 'itinerary' ? 'Itinerary' : 'Saved & Search'}</h1>
           </div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>v1.1</span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Horizon v1.1</span>
         </div>
 
         {storageError && (
@@ -748,26 +836,8 @@ function App() {
           onLoadDemoTrip={handleLoadDemoTrip}
         />
 
-        {/* Tab Selection */}
-        <div className="sidebar-tabs" style={{ marginTop: '0.5rem' }}>
-          <button
-            className={`tab-btn ${activeTab === 'itinerary' ? 'active' : ''}`}
-            onClick={() => setActiveTab('itinerary')}
-          >
-            <Calendar size={16} />
-            Itinerary
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
-            onClick={() => setActiveTab('search')}
-          >
-            <Compass size={16} />
-            Search & Pins
-          </button>
-        </div>
-
         {/* Panels Content */}
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}>
           {activeTab === 'search' ? (
             <SearchPanel
               savedLocations={savedLocations}
@@ -809,6 +879,7 @@ function App() {
               onAddToItinerary={(locId) => handleAddToItinerary(locId, activeDayIndex)}
               onInsertAtItinerary={(locId, idx) => handleInsertAtItinerary(locId, idx, activeDayIndex)}
               onLoadDemoTrip={handleLoadDemoTrip}
+              distanceUnit={distanceUnit}
             />
           )}
         </div>
@@ -829,6 +900,7 @@ function App() {
             setViewportCenter(center);
             setViewportBbox(bbox);
           }}
+          mapboxToken={userMapboxToken || undefined}
         />
       </main>
     </div>

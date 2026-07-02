@@ -50,6 +50,7 @@ interface ItineraryPanelProps {
   onInsertAtItinerary?: (locationId: string, index: number) => void;
   onSetItinerary?: (newItinerary: ItineraryItem[]) => void;
   onLoadDemoTrip?: () => void;
+  distanceUnit?: 'km' | 'mi';
 }
 
 export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
@@ -77,6 +78,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onAddToItinerary,
   onInsertAtItinerary,
   onLoadDemoTrip,
+  distanceUnit = 'km',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
@@ -288,6 +290,13 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
 
   // Formatting helpers
   const formatDistance = (meters: number) => {
+    if (distanceUnit === 'mi') {
+      const miles = meters * 0.000621371;
+      if (miles < 0.1) {
+        return `${Math.round(meters * 3.28084)} ft`;
+      }
+      return `${miles.toFixed(1)} mi`;
+    }
     if (meters < 1000) return `${Math.round(meters)} m`;
     return `${(meters / 1000).toFixed(1)} km`;
   };

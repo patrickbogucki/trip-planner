@@ -15,6 +15,7 @@ interface MapComponentProps {
   onRegisterZoom?: (fn: () => void) => void;
   searchResults?: Location[];
   onViewportChange?: (center: [number, number], bbox: [number, number, number, number]) => void;
+  mapboxToken?: string;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -27,9 +28,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   onRegisterZoom,
   searchResults = [],
   onViewportChange,
+  mapboxToken: customMapboxToken,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
   
   const [isSatellite, setIsSatellite] = useState(false);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
@@ -42,11 +45,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const previewMarkerRef = useRef<L.Marker | null>(null);
   const isFirstLoadRef = useRef(true);
 
-  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const mapboxToken = customMapboxToken !== undefined ? customMapboxToken : (import.meta.env.VITE_MAPBOX_TOKEN || '');
 
   // Initialize Map
   useEffect(() => {
-    if (!mapContainerRef.current || map) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
     // Create the Leaflet map instance
     const mapInstance = L.map(mapContainerRef.current, {
@@ -93,6 +96,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     const polylineGroup = L.featureGroup().addTo(mapInstance);
     polylineGroupRef.current = polylineGroup;
 
+    mapRef.current = mapInstance;
     setMap(mapInstance);
 
     // Report initial viewport
@@ -119,6 +123,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
     return () => {
       mapInstance.remove();
+      mapRef.current = null;
       setMap(null);
       // Clear leaflet refs to prevent stale data in React 18 Strict Mode double-mounts
       markersRef.current = {};
@@ -126,7 +131,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       polylineGroupRef.current = null;
       previewMarkerRef.current = null;
     };
-  }, []);
+  }, [mapboxToken]);
 
   // Sync tile layers based on street vs satellite view
   useEffect(() => {
