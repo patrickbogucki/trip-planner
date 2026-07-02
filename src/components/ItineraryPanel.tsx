@@ -35,7 +35,8 @@ interface ItineraryPanelProps {
   isLoadingRoutes: boolean;
   onUpdateDuration: (id: string, hours: number, minutes: number) => void;
   onUpdateCommuteMode: (id: string, mode: CommuteMode) => void;
-  onUpdateRoutePreference: (id: string, preference: 'shortest' | 'fastest') => void;
+  routePreference?: 'shortest' | 'fastest';
+  onUpdateRoutePreference: (preference: 'shortest' | 'fastest') => void;
   onReorderItinerary: (index: number, direction: 'up' | 'down') => void;
   onRemoveFromItinerary: (locationId: string) => void;
   onSelectLocation: (loc: Location) => void;
@@ -62,6 +63,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   isLoadingRoutes,
   onUpdateDuration,
   onUpdateCommuteMode,
+  routePreference,
   onUpdateRoutePreference,
   onReorderItinerary,
   onSetItinerary,
@@ -82,10 +84,13 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onLoadDemoTrip,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isRoutePreferenceOpen, setIsRoutePreferenceOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [tempItinerary, setTempItinerary] = useState<ItineraryItem[] | null>(null);
+
+  const routePreferenceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (draggedIndex === null) {
@@ -128,6 +133,19 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close route preference dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (routePreferenceRef.current && !routePreferenceRef.current.contains(event.target as Node)) {
+        setIsRoutePreferenceOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -582,7 +600,47 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
       ) : (
         <>
           {/* Compact toggle + Zoom button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', alignItems: 'center' }}>
+            <div className="route-preference-custom-wrapper" ref={routePreferenceRef}>
+              <button
+                type="button"
+                className={`compact-toggle-btn ${isRoutePreferenceOpen ? 'active' : ''}`}
+                onClick={() => setIsRoutePreferenceOpen((prev) => !prev)}
+                title="Driving route preference for all routes on the trip"
+              >
+                <span>{routePreference === 'shortest' ? 'Shortest Route' : 'Fastest Route'}</span>
+                <ChevronDown size={14} className={`trip-caret-icon ${isRoutePreferenceOpen ? 'open' : ''}`} />
+              </button>
+
+              {isRoutePreferenceOpen && (
+                <ul className="route-preference-menu" role="listbox">
+                  <li
+                    role="option"
+                    aria-selected={routePreference === 'fastest'}
+                    className={`route-preference-item ${routePreference === 'fastest' ? 'selected' : ''}`}
+                    onClick={() => {
+                      onUpdateRoutePreference('fastest');
+                      setIsRoutePreferenceOpen(false);
+                    }}
+                  >
+                    <span>Fastest Route</span>
+                    {routePreference === 'fastest' && <Check size={14} className="route-preference-checkmark" />}
+                  </li>
+                  <li
+                    role="option"
+                    aria-selected={routePreference === 'shortest'}
+                    className={`route-preference-item ${routePreference === 'shortest' ? 'selected' : ''}`}
+                    onClick={() => {
+                      onUpdateRoutePreference('shortest');
+                      setIsRoutePreferenceOpen(false);
+                    }}
+                  >
+                    <span>Shortest Route</span>
+                    {routePreference === 'shortest' && <Check size={14} className="route-preference-checkmark" />}
+                  </li>
+                </ul>
+              )}
+            </div>
             <button
               type="button"
               className="compact-toggle-btn"
@@ -1064,26 +1122,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                           </button>
                         </div>
 
-                        {item.commuteMode === 'driving' && (
-                          <div className="driving-preference-selector">
-                            <button
-                              type="button"
-                              className={`driving-preference-btn ${(!item.routePreference || item.routePreference === 'fastest') ? 'active' : ''}`}
-                              onClick={() => onUpdateRoutePreference(item.id, 'fastest')}
-                              title="Fastest route by travel time"
-                            >
-                              Fastest
-                            </button>
-                            <button
-                              type="button"
-                              className={`driving-preference-btn ${item.routePreference === 'shortest' ? 'active' : ''}`}
-                              onClick={() => onUpdateRoutePreference(item.id, 'shortest')}
-                              title="Shortest route by distance"
-                            >
-                              Shortest
-                            </button>
-                          </div>
-                        )}
+
 
                         {/* Path Details */}
                         {isLoadingRoutes ? (

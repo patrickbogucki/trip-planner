@@ -105,6 +105,7 @@ function App() {
             itinerary,
           },
         ],
+        routePreference: 'fastest',
       };
 
       // Clean up legacy keys
@@ -128,6 +129,7 @@ function App() {
           itinerary: [],
         },
       ],
+      routePreference: 'fastest',
     };
     return [defaultTrip];
   });
@@ -209,6 +211,8 @@ function App() {
     return R * c;
   };
 
+  const tripRoutePreference = activeTrip?.routePreference;
+
   // Fetch routing paths from OSRM public API
   useEffect(() => {
     if (itinerary.length < 2) {
@@ -265,7 +269,7 @@ function App() {
 
           let route = data.routes[0];
           if (item.commuteMode === 'driving' && data.routes.length > 1) {
-            const preference = item.routePreference || 'fastest';
+            const preference = tripRoutePreference || 'fastest';
             if (preference === 'shortest') {
               route = data.routes.reduce(
                 (min: any, r: any) => (r.distance < min.distance ? r : min),
@@ -331,7 +335,7 @@ function App() {
     return () => {
       abortController.abort();
     };
-  }, [itinerary, savedLocations]);
+  }, [itinerary, savedLocations, tripRoutePreference]);
 
   // Operations: Saved Pinned Locations
   const handleAddLocation = (loc: Location) => {
@@ -484,21 +488,11 @@ function App() {
     });
   };
 
-  const handleUpdateRoutePreference = (itemId: string, preference: 'shortest' | 'fastest') => {
-    updateActiveTrip((trip) => {
-      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
-      const day = trip.days[targetDayIdx];
-      const updatedItinerary = day.itinerary.map((item) =>
-        item.id === itemId ? { ...item, routePreference: preference } : item
-      );
-      const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
-      );
-      return {
-        ...trip,
-        days: updatedDays,
-      };
-    });
+  const handleUpdateTripRoutePreference = (preference: 'shortest' | 'fastest') => {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      routePreference: preference,
+    }));
   };
 
   const handleUpdateLockedArrivalTime = (itemId: string, lockedArrivalTime: string | null) => {
@@ -812,7 +806,8 @@ function App() {
               isLoadingRoutes={isLoadingRoutes}
               onUpdateDuration={handleUpdateDuration}
               onUpdateCommuteMode={handleUpdateCommuteMode}
-              onUpdateRoutePreference={handleUpdateRoutePreference}
+              routePreference={activeTrip?.routePreference || 'fastest'}
+              onUpdateRoutePreference={handleUpdateTripRoutePreference}
               onReorderItinerary={handleReorderItinerary}
               onSetItinerary={handleSetItinerary}
               onRemoveFromItinerary={handleRemoveFromItinerary}
