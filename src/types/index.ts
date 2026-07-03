@@ -20,6 +20,9 @@ export interface ItineraryItem {
   startTime?: string; // leave time for the first stop (format "HH:MM")
   routePreference?: 'shortest' | 'fastest'; // driving route preference
   note?: string; // optional notes/comments for the stop
+  // Fixed arrival time (e.g. a reservation) that upstream commute/duration changes cannot shift; format "HH:MM".
+  // The first stop in a day always uses this (defaulting to 09:00) since it has no upstream to compute from.
+  lockedArrivalTime?: string;
 }
 
 export interface RouteSegment {
@@ -46,4 +49,5 @@ export interface Trip {
   itinerary?: ItineraryItem[]; // legacy single-day fallback for migration
   date?: string; // legacy start-date fallback for migration
   days: TripDay[];
+  routePreference?: 'shortest' | 'fastest'; // driving route preference
 }

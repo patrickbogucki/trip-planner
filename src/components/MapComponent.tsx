@@ -5,16 +5,52 @@ import { Compass, Globe } from 'lucide-react';
 import { getCategory } from '../utils/categories';
 import { areLocationsEquivalent } from '../utils/location';
 
+const formatPopupContent = (name: string) => {
+  let displayName = name;
+  if (displayName.length > 30) {
+    displayName = displayName.substring(0, 30) + '...';
+  }
+  return displayName;
+};
+
+const updateMarkerTooltip = (marker: L.Marker, name: string, isActive: boolean) => {
+  const tooltipText = formatPopupContent(name);
+  const currentTooltip = marker.getTooltip();
+
+  if (currentTooltip) {
+    const isCurrentlyPermanent = currentTooltip.options.permanent;
+    if (isCurrentlyPermanent === isActive) {
+      if (isActive && !marker.isTooltipOpen()) {
+        marker.openTooltip();
+      }
+      return;
+    }
+  }
+
+  marker.unbindTooltip();
+  marker.bindTooltip(tooltipText, {
+    direction: 'top',
+    offset: [0, -14],
+    opacity: 0.9,
+    className: 'map-tooltip',
+    permanent: isActive,
+  });
+
+  if (isActive) {
+    marker.openTooltip();
+  }
+};
+
 interface MapComponentProps {
   savedLocations: Location[];
   itinerary: ItineraryItem[];
   routes: RouteSegment[];
   activeLocation: Location | null;
   onSelectLocation: (loc: Location | null) => void;
-  onAddLocation: (loc: Location) => void;
   onRegisterZoom?: (fn: () => void) => void;
   searchResults?: Location[];
   onViewportChange?: (center: [number, number], bbox: [number, number, number, number]) => void;
+  mapboxToken?: string;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -23,14 +59,26 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   routes,
   activeLocation,
   onSelectLocation,
-  onAddLocation,
   onRegisterZoom,
   searchResults = [],
   onViewportChange,
+  mapboxToken: customMapboxToken,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<L.Map | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
   
+  const activeLocationRef = useRef(activeLocation);
+  const onSelectLocationRef = useRef(onSelectLocation);
+
+  useEffect(() => {
+    activeLocationRef.current = activeLocation;
+  }, [activeLocation]);
+
+  useEffect(() => {
+    onSelectLocationRef.current = onSelectLocation;
+  }, [onSelectLocation]);
+
   const [isSatellite, setIsSatellite] = useState(false);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
@@ -42,19 +90,22 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const previewMarkerRef = useRef<L.Marker | null>(null);
   const isFirstLoadRef = useRef(true);
 
-  const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+  const mapboxToken = customMapboxToken !== undefined ? customMapboxToken : (import.meta.env.VITE_MAPBOX_TOKEN || '');
 
   // Initialize Map
   useEffect(() => {
-    if (!mapContainerRef.current || map) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
     // Create the Leaflet map instance
     const mapInstance = L.map(mapContainerRef.current, {
       center: [40.7128, -74.006], // Default NYC center
       zoom: 12,
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false, // Clean UI, custom watermark is enough
     });
+
+    // Add zoom control at bottom right
+    L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
 
     // Create the Leaflet tile layers using Mapbox styles (or OSM/Esri fallback if token is missing)
     const streetLayerUrl = mapboxToken
@@ -93,6 +144,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     const polylineGroup = L.featureGroup().addTo(mapInstance);
     polylineGroupRef.current = polylineGroup;
 
+    mapRef.current = mapInstance;
     setMap(mapInstance);
 
     // Report initial viewport
@@ -113,6 +165,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       );
     });
 
+    mapInstance.on('click', () => {
+      onSelectLocationRef.current(null);
+    });
+
     const timerId = setTimeout(() => {
       try {
         mapInstance.invalidateSize();
@@ -124,6 +180,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     return () => {
       clearTimeout(timerId);
       mapInstance.remove();
+      mapRef.current = null;
       setMap(null);
       // Clear leaflet refs to prevent stale data in React 18 Strict Mode double-mounts
       markersRef.current = {};
@@ -131,7 +188,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       polylineGroupRef.current = null;
       previewMarkerRef.current = null;
     };
-  }, []);
+  }, [mapboxToken]);
 
   // Sync tile layers based on street vs satellite view
   useEffect(() => {
@@ -193,23 +250,12 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       const customIcon = L.divIcon({
         className: 'leaflet-custom-marker',
         html: iconHtml,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-        popupAnchor: [0, -18],
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
       });
 
-      const tooltipText = isSearchResult ? `${loc.name} (✓ Pinned)` : loc.name;
-
-      const popupContentHtml = `
-        <div style="font-family: 'Outfit', sans-serif; padding: 4px;">
-          <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600;">${loc.name}</h4>
-          <p style="margin: 0; font-size: 11px; color: #64748b; max-width: 200px; line-height: 1.3;">${loc.displayName}</p>
-          <div style="margin-top: 8px; font-size: 11px; font-weight: 700; display: flex; flex-direction: column; gap: 2px;">
-            ${isItinerary ? `<span style="color: #6366f1;">Stop #${itinIndex + 1} in Itinerary</span>` : '<span style="color: #6366f1;">Saved Location</span>'}
-            ${isSearchResult ? '<span style="color: var(--success, #10b981); display: inline-flex; align-items: center; gap: 4px;"><svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="3" fill="none" style="display: inline-block;"><polyline points="20 6 9 17 4 12"></polyline></svg>Pinned Search Result</span>' : ''}
-          </div>
-        </div>
-      `;
+      const isActive = activeLocationRef.current ? (activeLocationRef.current.id === loc.id || areLocationsEquivalent(activeLocationRef.current, loc)) : false;
 
       if (markersRef.current[markerId]) {
         // Update existing marker position & icon
@@ -217,29 +263,36 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         existingMarker.setLatLng([loc.lat, loc.lng]);
         existingMarker.setIcon(customIcon);
         
-        // Re-bind popup & tooltip
-        existingMarker.unbindPopup();
-        existingMarker.unbindTooltip();
-        existingMarker.bindPopup(popupContentHtml);
-        existingMarker.bindTooltip(tooltipText, {
-          direction: 'top',
-          offset: [0, -18],
-          opacity: 0.9,
-          className: 'map-tooltip',
+        updateMarkerTooltip(existingMarker, loc.name, isActive);
+
+        existingMarker.off('click');
+        existingMarker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
       } else {
         // Create new marker
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
-        marker.bindPopup(popupContentHtml);
-        marker.bindTooltip(tooltipText, {
-          direction: 'top',
-          offset: [0, -18],
-          opacity: 0.9,
-          className: 'map-tooltip',
-        });
 
-        marker.on('click', () => {
-          onSelectLocation(loc);
+        updateMarkerTooltip(marker, loc.name, isActive);
+
+        marker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
 
         markersRef.current[markerId] = marker;
@@ -265,30 +318,28 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       previewMarkerRef.current = null;
     }
 
+    // Update tooltips on existing markers to reflect active state
+    Object.keys(markersRef.current).forEach((id) => {
+      const marker = markersRef.current[id];
+      const loc = savedLocations.find((l) => l.id === id);
+      if (loc) {
+        const isActive = activeLocation ? (activeLocation.id === loc.id || areLocationsEquivalent(activeLocation, loc)) : false;
+        updateMarkerTooltip(marker, loc.name, isActive);
+      }
+    });
+
     if (activeLocation) {
       // Check if location is already pinned
       const matchedSavedLoc = savedLocations.find((loc) => loc.id === activeLocation.id || areLocationsEquivalent(loc, activeLocation));
       const isAlreadyPinned = !!matchedSavedLoc;
 
       if (isAlreadyPinned && matchedSavedLoc) {
-        // If already pinned, use the existing marker
-        const existingMarker = markersRef.current[matchedSavedLoc.id];
+        // If already pinned, just pan to location
         map.invalidateSize();
-        if (existingMarker) {
-          // Pan to location
-          map.panTo([activeLocation.lat, activeLocation.lng], {
-            animate: true,
-            duration: 0.75,
-          });
-          // Open the popup on the existing marker
-          existingMarker.openPopup();
-        } else {
-          // Fallback if marker not in ref yet
-          map.panTo([activeLocation.lat, activeLocation.lng], {
-            animate: true,
-            duration: 0.75,
-          });
-        }
+        map.panTo([activeLocation.lat, activeLocation.lng], {
+          animate: true,
+          duration: 0.75,
+        });
       } else {
         // If not pinned (temporary search suggestion), create a pulsing preview marker
         const catInfo = getCategory(activeLocation.category || 'other');
@@ -302,57 +353,22 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         const customIcon = L.divIcon({
           className: 'leaflet-custom-marker-preview',
           html: iconHtml,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-          popupAnchor: [0, -18],
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          popupAnchor: [0, -14],
         });
 
         const previewMarker = L.marker([activeLocation.lat, activeLocation.lng], { icon: customIcon }).addTo(map);
 
-        const popupContent = document.createElement('div');
-        popupContent.style.fontFamily = "'Outfit', sans-serif";
-        popupContent.style.padding = '4px';
+        updateMarkerTooltip(previewMarker, activeLocation.name, true);
 
-        const title = document.createElement('h4');
-        title.style.margin = '0 0 4px 0';
-        title.style.fontSize = '14px';
-        title.style.fontWeight = '600';
-        title.innerText = activeLocation.name;
-        popupContent.appendChild(title);
-
-        const address = document.createElement('p');
-        address.style.margin = '0';
-        address.style.fontSize = '11px';
-        address.style.color = '#64748b';
-        address.style.maxWidth = '200px';
-        address.style.lineHeight = '1.3';
-        address.innerText = activeLocation.displayName;
-        popupContent.appendChild(address);
-
-        const btn = document.createElement('button');
-        btn.style.marginTop = '8px';
-        btn.style.backgroundColor = '#6366f1';
-        btn.style.color = '#ffffff';
-        btn.style.border = 'none';
-        btn.style.padding = '4px 8px';
-        btn.style.fontSize = '11px';
-        btn.style.fontWeight = '600';
-        btn.style.borderRadius = '4px';
-        btn.style.cursor = 'pointer';
-        btn.innerText = 'Pin Location';
-        btn.onclick = () => {
-          onAddLocation(activeLocation);
-          onSelectLocation(null);
-        };
-        popupContent.appendChild(btn);
-
-        previewMarker.bindPopup(popupContent);
-        previewMarker.bindTooltip(activeLocation.name, {
-          direction: 'top',
-          offset: [0, -18],
-          opacity: 0.9,
-          className: 'map-tooltip',
+        previewMarker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          onSelectLocationRef.current(null);
         });
+
         previewMarkerRef.current = previewMarker;
 
         map.invalidateSize();
@@ -360,8 +376,6 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           animate: true,
           duration: 0.75,
         });
-
-        previewMarker.openPopup();
       }
     }
   }, [map, activeLocation, savedLocations]);
@@ -373,28 +387,32 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     const currentSearchMarkerIds = new Set<string>();
 
     searchResults.forEach((loc) => {
-      // Avoid duplicate search markers if the location is already saved
-      if (savedLocations.some((s) => s.id === loc.id || areLocationsEquivalent(s, loc))) {
+      // Avoid duplicate search markers if the location is already saved or currently selected/active
+      if (
+        savedLocations.some((s) => s.id === loc.id || areLocationsEquivalent(s, loc)) ||
+        (activeLocation && (activeLocation.id === loc.id || areLocationsEquivalent(activeLocation, loc)))
+      ) {
         return;
       }
 
       const markerId = `search-${loc.id}`;
       currentSearchMarkerIds.add(markerId);
 
+      const catInfo = getCategory(loc.category || 'other');
       const iconHtml = `
-        <div class="map-category-marker search-result-pin" style="background-color: #8b5cf6; border: 2px solid white; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.4);">
-          <svg class="map-category-svg" viewBox="0 0 24 24" style="fill: white;">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+        <div class="map-category-marker search-result-dot" style="background-color: #ffffff; border: 1.5px solid ${catInfo.color}; color: ${catInfo.color}; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md);">
+          <svg class="map-category-svg" viewBox="0 0 24 24">
+            ${catInfo.svgContent}
           </svg>
         </div>
       `;
 
       const customIcon = L.divIcon({
-        className: 'leaflet-custom-marker search-pin',
+        className: 'leaflet-custom-marker search-dot',
         html: iconHtml,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        popupAnchor: [0, -16],
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -14],
       });
 
       if (searchMarkersRef.current[markerId]) {
@@ -402,63 +420,47 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         existingMarker.setLatLng([loc.lat, loc.lng]);
         existingMarker.setIcon(customIcon);
         existingMarker.unbindTooltip();
-        existingMarker.bindTooltip(loc.name, {
+        existingMarker.bindTooltip(formatPopupContent(loc.name), {
           direction: 'top',
-          offset: [0, -16],
+          offset: [0, -14],
           opacity: 0.9,
           className: 'map-tooltip',
+          permanent: false,
+        });
+
+        existingMarker.off('click');
+        existingMarker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
       } else {
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
 
-        const popupContent = document.createElement('div');
-        popupContent.style.fontFamily = "'Outfit', sans-serif";
-        popupContent.style.padding = '4px';
-
-        const title = document.createElement('h4');
-        title.style.margin = '0 0 4px 0';
-        title.style.fontSize = '13px';
-        title.style.fontWeight = '600';
-        title.innerText = loc.name;
-        popupContent.appendChild(title);
-
-        const address = document.createElement('p');
-        address.style.margin = '0';
-        address.style.fontSize = '10px';
-        address.style.color = '#64748b';
-        address.style.maxWidth = '180px';
-        address.style.lineHeight = '1.3';
-        address.innerText = loc.displayName;
-        popupContent.appendChild(address);
-
-        const btn = document.createElement('button');
-        btn.style.marginTop = '8px';
-        btn.style.backgroundColor = '#8b5cf6';
-        btn.style.color = '#ffffff';
-        btn.style.border = 'none';
-        btn.style.padding = '4px 8px';
-        btn.style.fontSize = '10px';
-        btn.style.fontWeight = '600';
-        btn.style.borderRadius = '4px';
-        btn.style.cursor = 'pointer';
-        btn.innerText = '+ Pin Location';
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          onAddLocation(loc);
-          marker.closePopup();
-        };
-        popupContent.appendChild(btn);
-
-        marker.bindPopup(popupContent);
-        marker.bindTooltip(loc.name, {
+        marker.bindTooltip(formatPopupContent(loc.name), {
           direction: 'top',
-          offset: [0, -16],
+          offset: [0, -14],
           opacity: 0.9,
           className: 'map-tooltip',
+          permanent: false,
         });
 
-        marker.on('click', () => {
-          onSelectLocation(loc);
+        marker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
 
         searchMarkersRef.current[markerId] = marker;
@@ -472,7 +474,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         delete searchMarkersRef.current[id];
       }
     });
-  }, [map, searchResults, savedLocations]);
+  }, [map, searchResults, savedLocations, activeLocation]);
 
   // Sync Route Polylines
   useEffect(() => {

@@ -99,7 +99,7 @@ export function generateDemoTrip(): Trip {
           durationHours: 0,
           durationMinutes: 45,
           commuteMode: 'walking' as CommuteMode,
-          startTime: '09:00',
+          lockedArrivalTime: '09:00',
           note: 'Grab a New Orleans Iced Coffee.'
         },
         {
@@ -139,7 +139,7 @@ export function generateDemoTrip(): Trip {
           durationHours: 1,
           durationMinutes: 0,
           commuteMode: 'transit' as CommuteMode,
-          startTime: '10:00',
+          lockedArrivalTime: '10:00',
           note: 'Late check-out request confirmed for 12:00 PM.'
         },
         {
@@ -179,7 +179,7 @@ export function generateDemoTrip(): Trip {
           durationHours: 3,
           durationMinutes: 0,
           commuteMode: 'walking' as CommuteMode,
-          startTime: '11:00',
+          lockedArrivalTime: '11:00',
           note: 'Check out the design stores on Greene St.'
         },
         {
@@ -198,6 +198,7 @@ export function generateDemoTrip(): Trip {
     name: 'NYC Weekend Getaway (Demo)',
     createdAt: Date.now(),
     savedLocations: locations,
-    days
+    days,
+    routePreference: 'fastest'
   };
 }

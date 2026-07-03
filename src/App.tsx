@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { Compass, Calendar, Settings } from 'lucide-react';
-import { SearchPanel } from './components/SearchPanel';
+import { PinnedPanel } from './components/PinnedPanel';
+import { FloatingSearch } from './components/FloatingSearch';
 import { ItineraryPanel } from './components/ItineraryPanel';
 import { MapComponent } from './components/MapComponent';
 import { TripSelector } from './components/TripSelector';
+import { MiniSidebar } from './components/MiniSidebar';
+import { SettingsPanel } from './components/SettingsPanel';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, Trip, LocationCategory, TripDay } from './types';
 import { areLocationsEquivalent } from './utils/location';
 import { generateDemoTrip } from './utils/dummyData';
+import { preserveArrivalOnPromotion } from './utils/schedule';
 
 // Mapbox Profile Mapping
 const PROFILE_MAP: Record<string, string> = {
@@ -29,8 +32,24 @@ const parseLocalStorageJson = <T,>(key: string): T | null => {
   }
 };
 
+// Migrates itinerary items saved before `lockedArrivalTime` replaced the old, first-stop-only
+// `startTime` field: carries the legacy value forward as `lockedArrivalTime` on the first stop
+// (where it's still meaningful) and drops the stale field everywhere else.
+const migrateLegacyStartTime = (trip: Trip): Trip => ({
+  ...trip,
+  days: trip.days.map((day) => ({
+    ...day,
+    itinerary: day.itinerary.map((item, idx) => {
+      const legacyStartTime = (item as ItineraryItem & { startTime?: string }).startTime;
+      if (legacyStartTime === undefined) return item;
+      const { startTime: _startTime, ...rest } = item as ItineraryItem & { startTime?: string };
+      return idx === 0 && !rest.lockedArrivalTime ? { ...rest, lockedArrivalTime: legacyStartTime } : rest;
+    }),
+  })),
+});
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'itinerary' | 'settings'>('itinerary');
+  const [activeTab, setActiveTab] = useState<'pins' | 'itinerary'>('itinerary');
   const [noteLinesMax, setNoteLinesMax] = useState<number>(() => {
     const saved = localStorage.getItem('horizon_note_lines_max');
     return saved ? Number(saved) : 3;
@@ -39,6 +58,21 @@ function App() {
   useEffect(() => {
     localStorage.setItem('horizon_note_lines_max', String(noteLinesMax));
   }, [noteLinesMax]);
+  
+  // Settings & Preferences States
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
+    return (localStorage.getItem('horizon_theme') as 'system' | 'light' | 'dark') || 'system';
+  });
+  const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>(() => {
+    return (localStorage.getItem('horizon_distance_unit') as 'km' | 'mi') || 'km';
+  });
+  const [defaultCommuteMode, setDefaultCommuteMode] = useState<CommuteMode>(() => {
+    return (localStorage.getItem('horizon_default_commute_mode') as CommuteMode) || 'driving';
+  });
+  const [userMapboxToken, setUserMapboxToken] = useState<string>(() => {
+    return localStorage.getItem('horizon_mapbox_token') || '';
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [activeLocation, setActiveLocation] = useState<Location | null>(null);
   const [routes, setRoutes] = useState<RouteSegment[]>([]);
@@ -60,7 +94,7 @@ function App() {
     if (parsed) {
       return parsed.map((trip) => {
         if (!trip.days || trip.days.length === 0) {
-          return {
+          return migrateLegacyStartTime({
             ...trip,
             days: [
               {
@@ -70,9 +104,9 @@ function App() {
                 itinerary: trip.itinerary || [],
               },
             ],
-          };
+          });
         }
-        return trip;
+        return migrateLegacyStartTime(trip);
       });
     }
 
@@ -97,6 +131,7 @@ function App() {
             itinerary,
           },
         ],
+        routePreference: 'fastest',
       };
 
       // Clean up legacy keys
@@ -120,6 +155,7 @@ function App() {
           itinerary: [],
         },
       ],
+      routePreference: 'fastest',
     };
     return [defaultTrip];
   });
@@ -173,6 +209,31 @@ function App() {
     setActiveDayIndex(0);
   }, [activeTripId]);
 
+  // Sync settings states to localStorage
+  useEffect(() => {
+    localStorage.setItem('horizon_theme', theme);
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.setAttribute('data-theme', 'dark');
+    } else if (theme === 'light') {
+      root.setAttribute('data-theme', 'light');
+    } else {
+      root.removeAttribute('data-theme');
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem('horizon_distance_unit', distanceUnit);
+  }, [distanceUnit]);
+
+  useEffect(() => {
+    localStorage.setItem('horizon_default_commute_mode', defaultCommuteMode);
+  }, [defaultCommuteMode]);
+
+  useEffect(() => {
+    localStorage.setItem('horizon_mapbox_token', userMapboxToken);
+  }, [userMapboxToken]);
+
   // Active Trip references
   const activeTrip = trips.find((t) => t.id === activeTripId) || trips[0];
   const savedLocations = activeTrip ? activeTrip.savedLocations : [];
@@ -200,6 +261,8 @@ function App() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
+
+  const tripRoutePreference = activeTrip?.routePreference;
 
   // Fetch routing paths from OSRM public API
   useEffect(() => {
@@ -240,7 +303,7 @@ function App() {
           };
         }
 
-        const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+        const mapboxToken = userMapboxToken || import.meta.env.VITE_MAPBOX_TOKEN || '';
         const profile = PROFILE_MAP[item.commuteMode] || 'driving';
         const alternativesParam = item.commuteMode === 'driving' ? '&alternatives=true' : '';
         const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${fromLoc.lng},${fromLoc.lat};${toLoc.lng},${toLoc.lat}?overview=full&geometries=geojson${alternativesParam}&access_token=${mapboxToken}`;
@@ -257,7 +320,7 @@ function App() {
 
           let route = data.routes[0];
           if (item.commuteMode === 'driving' && data.routes.length > 1) {
-            const preference = item.routePreference || 'fastest';
+            const preference = tripRoutePreference || 'fastest';
             if (preference === 'shortest') {
               route = data.routes.reduce(
                 (min: any, r: any) => (r.distance < min.distance ? r : min),
@@ -323,7 +386,7 @@ function App() {
     return () => {
       abortController.abort();
     };
-  }, [itinerary, savedLocations]);
+  }, [itinerary, savedLocations, userMapboxToken, tripRoutePreference]);
 
   // Operations: Saved Pinned Locations
   const handleAddLocation = (loc: Location) => {
@@ -404,7 +467,7 @@ function App() {
         locationId: locationId,
         durationHours: 1, // Default spend: 1hr
         durationMinutes: 0,
-        commuteMode: 'driving',
+        commuteMode: defaultCommuteMode,
       };
       const updatedDays = trip.days.map((d, idx) =>
         idx === dayIndex ? { ...d, itinerary: [...d.itinerary, newItem] } : d
@@ -425,7 +488,7 @@ function App() {
         locationId: locationId,
         durationHours: 1, // Default spend: 1hr
         durationMinutes: 0,
-        commuteMode: 'driving',
+        commuteMode: defaultCommuteMode,
       };
       const updatedItinerary = [...day.itinerary];
       updatedItinerary.splice(insertIndex, 0, newItem);
@@ -476,29 +539,19 @@ function App() {
     });
   };
 
-  const handleUpdateRoutePreference = (itemId: string, preference: 'shortest' | 'fastest') => {
-    updateActiveTrip((trip) => {
-      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
-      const day = trip.days[targetDayIdx];
-      const updatedItinerary = day.itinerary.map((item) =>
-        item.id === itemId ? { ...item, routePreference: preference } : item
-      );
-      const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
-      );
-      return {
-        ...trip,
-        days: updatedDays,
-      };
-    });
+  const handleUpdateTripRoutePreference = (preference: 'shortest' | 'fastest') => {
+    updateActiveTrip((trip) => ({
+      ...trip,
+      routePreference: preference,
+    }));
   };
 
-  const handleUpdateStartTime = (itemId: string, startTime: string) => {
+  const handleUpdateLockedArrivalTime = (itemId: string, lockedArrivalTime: string | null) => {
     updateActiveTrip((trip) => {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
       const day = trip.days[targetDayIdx];
       const updatedItinerary = day.itinerary.map((item) =>
-        item.id === itemId ? { ...item, startTime } : item
+        item.id === itemId ? { ...item, lockedArrivalTime: lockedArrivalTime || undefined } : item
       );
       const updatedDays = trip.days.map((d, idx) =>
         idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
@@ -556,13 +609,14 @@ function App() {
 
       const newItinerary = [...day.itinerary];
       const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      
+
       const temp = newItinerary[index];
       newItinerary[index] = newItinerary[targetIndex];
       newItinerary[targetIndex] = temp;
-      
+
+      const promotedItinerary = preserveArrivalOnPromotion(day.itinerary, newItinerary, routes, trip.savedLocations);
       const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: newItinerary } : d
+        idx === targetDayIdx ? { ...d, itinerary: promotedItinerary } : d
       );
       return {
         ...trip,
@@ -574,8 +628,10 @@ function App() {
   const handleSetItinerary = (newItinerary: ItineraryItem[]) => {
     updateActiveTrip((trip) => {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const day = trip.days[targetDayIdx];
+      const promotedItinerary = preserveArrivalOnPromotion(day.itinerary, newItinerary, routes, trip.savedLocations);
       const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: newItinerary } : d
+        idx === targetDayIdx ? { ...d, itinerary: promotedItinerary } : d
       );
       return {
         ...trip,
@@ -589,8 +645,9 @@ function App() {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
       const day = trip.days[targetDayIdx];
       const updatedItinerary = day.itinerary.filter((item) => item.locationId !== locationId);
+      const promotedItinerary = preserveArrivalOnPromotion(day.itinerary, updatedItinerary, routes, trip.savedLocations);
       const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
+        idx === targetDayIdx ? { ...d, itinerary: promotedItinerary } : d
       );
       return {
         ...trip,
@@ -737,18 +794,59 @@ function App() {
     setActiveLocation(null);
   };
 
+  const handleImportTrip = (importedTrip: Trip) => {
+    setTrips((prev) => {
+      if (prev.some((t) => t.id === importedTrip.id)) {
+        return prev.map((t) => (t.id === importedTrip.id ? importedTrip : t));
+      }
+      return [...prev, importedTrip];
+    });
+    setActiveTripId(importedTrip.id);
+    setActiveDayIndex(0);
+    setIsSettingsOpen(false);
+  };
+
+  const handleResetApp = () => {
+    if (window.confirm("Are you sure you want to reset all trip planning data? This will restore the demo state.")) {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="app-container">
-      {/* Side Control Panel */}
-      <aside className="sidebar">
-        <div className="sidebar-header" style={{ paddingBottom: '0.75rem', borderBottom: 'none' }}>
-          <div className="brand">
-            <Compass className="brand-icon" />
-            <h1>Horizon</h1>
-          </div>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>v1.1</span>
-        </div>
+      {/* Left Mini Navigation Sidebar */}
+      <MiniSidebar
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          setIsSettingsOpen(false);
+        }}
+        onSettingsClick={() => setIsSettingsOpen(!isSettingsOpen)}
+        isSettingsOpen={isSettingsOpen}
+      />
 
+      {/* Settings Drawer overlay */}
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        distanceUnit={distanceUnit}
+        onDistanceUnitChange={setDistanceUnit}
+        defaultCommuteMode={defaultCommuteMode}
+        onDefaultCommuteModeChange={setDefaultCommuteMode}
+        mapboxToken={userMapboxToken}
+        onMapboxTokenChange={setUserMapboxToken}
+        activeTrip={activeTrip}
+        onImportTrip={handleImportTrip}
+        onResetApp={handleResetApp}
+        noteLinesMax={noteLinesMax}
+        onNoteLinesMaxChange={setNoteLinesMax}
+      />
+
+      {/* Side Control Panel */}
+      <aside className="sidebar" style={{ paddingTop: '1.25rem' }}>
         {storageError && (
           <div
             className="card"
@@ -774,83 +872,19 @@ function App() {
           onLoadDemoTrip={handleLoadDemoTrip}
         />
 
-        {/* Tab Selection */}
-        <div className="sidebar-tabs" style={{ marginTop: '0.5rem' }}>
-          <button
-            className={`tab-btn ${activeTab === 'itinerary' ? 'active' : ''}`}
-            onClick={() => setActiveTab('itinerary')}
-          >
-            <Calendar size={16} />
-            Itinerary
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
-            onClick={() => setActiveTab('search')}
-          >
-            <Compass size={16} />
-            Search & Pins
-          </button>
-          <button
-            className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            <Settings size={16} />
-            Settings
-          </button>
-        </div>
 
         {/* Panels Content */}
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {activeTab === 'search' ? (
-            <SearchPanel
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}>
+          {activeTab === 'pins' ? (
+            <PinnedPanel
               savedLocations={savedLocations}
               days={activeTrip?.days || []}
               activeLocation={activeLocation}
-              onAddLocation={handleAddLocation}
               onRemoveLocation={handleRemoveLocation}
               onToggleLocationDay={handleToggleLocationDay}
               onSelectLocation={setActiveLocation}
               onUpdateLocationCategory={handleUpdateLocationCategory}
-              viewportCenter={viewportCenter}
-              viewportBbox={viewportBbox}
-              searchResults={searchResults}
-              onSetSearchResults={setSearchResults}
             />
-          ) : activeTab === 'settings' ? (
-            <div className="settings-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--text-primary)' }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Settings size={16} style={{ color: 'var(--accent)' }} />
-                <span>Preferences</span>
-              </h2>
-              
-              <div className="setting-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                  Note Display Limit (Expanded View)
-                </label>
-                <select 
-                  value={noteLinesMax}
-                  onChange={(e) => setNoteLinesMax(Number(e.target.value))}
-                  style={{
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                    color: 'var(--text-primary)',
-                    padding: '0.35rem 0.5rem',
-                    fontSize: '0.85rem',
-                    outline: 'none',
-                    width: '100%',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                    <option key={n} value={n}>{n} {n === 1 ? 'line' : 'lines'}</option>
-                  ))}
-                </select>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
-                  Controls the maximum visible height of expanded note textareas before scrolling is enabled.
-                </p>
-              </div>
-            </div>
           ) : (
             <ItineraryPanel
               itinerary={itinerary}
@@ -859,12 +893,13 @@ function App() {
               isLoadingRoutes={isLoadingRoutes}
               onUpdateDuration={handleUpdateDuration}
               onUpdateCommuteMode={handleUpdateCommuteMode}
-              onUpdateRoutePreference={handleUpdateRoutePreference}
+              routePreference={activeTrip?.routePreference || 'fastest'}
+              onUpdateRoutePreference={handleUpdateTripRoutePreference}
               onReorderItinerary={handleReorderItinerary}
               onSetItinerary={handleSetItinerary}
               onRemoveFromItinerary={handleRemoveFromItinerary}
               onSelectLocation={setActiveLocation}
-              onUpdateStartTime={handleUpdateStartTime}
+              onUpdateLockedArrivalTime={handleUpdateLockedArrivalTime}
               onUpdateNote={handleUpdateNote}
               tripDate={activeTrip?.days?.[0]?.date || ''}
               onUpdateTripDate={handleUpdateStartDate}
@@ -879,26 +914,39 @@ function App() {
               onAddToItinerary={(locId) => handleAddToItinerary(locId, activeDayIndex)}
               onInsertAtItinerary={(locId, idx) => handleInsertAtItinerary(locId, idx, activeDayIndex)}
               onLoadDemoTrip={handleLoadDemoTrip}
+              distanceUnit={distanceUnit}
             />
           )}
         </div>
       </aside>
 
       {/* Main Map View */}
-      <main style={{ flex: 1, height: '100%' }}>
+      <main style={{ flex: 1, height: '100%', position: 'relative' }}>
         <MapComponent
           savedLocations={savedLocations}
           itinerary={itinerary}
           routes={routes}
           activeLocation={activeLocation}
           onSelectLocation={setActiveLocation}
-          onAddLocation={handleAddLocation}
           onRegisterZoom={(fn) => { zoomToTripRef.current = fn; }}
           searchResults={searchResults}
           onViewportChange={(center, bbox) => {
             setViewportCenter(center);
             setViewportBbox(bbox);
           }}
+          mapboxToken={userMapboxToken || undefined}
+        />
+        <FloatingSearch
+          savedLocations={savedLocations}
+          activeLocation={activeLocation}
+          onAddLocation={handleAddLocation}
+          onRemoveLocation={handleRemoveLocation}
+          onSelectLocation={setActiveLocation}
+          viewportCenter={viewportCenter}
+          viewportBbox={viewportBbox}
+          searchResults={searchResults}
+          onSetSearchResults={setSearchResults}
+          mapboxToken={userMapboxToken || undefined}
         />
       </main>
     </div>

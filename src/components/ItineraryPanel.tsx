@@ -21,10 +21,13 @@ import {
   Check,
   GripVertical,
   Sparkles,
-  FileText
+  FileText,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, TripDay } from '../types';
 import { getCategory, CATEGORIES } from '../utils/categories';
+import { computeItineraryTimes, formatMinutesToClockTime, minutesToTimeInputValue, haversineDistanceMeters } from '../utils/schedule';
 
 interface ItineraryPanelProps {
   itinerary: ItineraryItem[];
@@ -33,11 +36,12 @@ interface ItineraryPanelProps {
   isLoadingRoutes: boolean;
   onUpdateDuration: (id: string, hours: number, minutes: number) => void;
   onUpdateCommuteMode: (id: string, mode: CommuteMode) => void;
-  onUpdateRoutePreference: (id: string, preference: 'shortest' | 'fastest') => void;
+  routePreference?: 'shortest' | 'fastest';
+  onUpdateRoutePreference: (preference: 'shortest' | 'fastest') => void;
   onReorderItinerary: (index: number, direction: 'up' | 'down') => void;
   onRemoveFromItinerary: (locationId: string) => void;
   onSelectLocation: (loc: Location) => void;
-  onUpdateStartTime: (id: string, startTime: string) => void;
+  onUpdateLockedArrivalTime: (id: string, lockedArrivalTime: string | null) => void;
   tripDate?: string;
   onUpdateTripDate: (date: string) => void;
   days: TripDay[];
@@ -53,6 +57,7 @@ interface ItineraryPanelProps {
   onLoadDemoTrip?: () => void;
   onUpdateNote: (id: string, note: string) => void;
   noteLinesMax?: number;
+  distanceUnit?: 'km' | 'mi';
 }
 
 export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
@@ -62,12 +67,13 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   isLoadingRoutes,
   onUpdateDuration,
   onUpdateCommuteMode,
+  routePreference,
   onUpdateRoutePreference,
   onReorderItinerary,
   onSetItinerary,
   onRemoveFromItinerary,
   onSelectLocation,
-  onUpdateStartTime,
+  onUpdateLockedArrivalTime,
   tripDate,
   onUpdateTripDate,
   days,
@@ -82,12 +88,16 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onLoadDemoTrip,
   onUpdateNote,
   noteLinesMax = 3,
+  distanceUnit = 'km',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isRoutePreferenceOpen, setIsRoutePreferenceOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [tempItinerary, setTempItinerary] = useState<ItineraryItem[] | null>(null);
+
+  const routePreferenceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (draggedIndex === null) {
@@ -132,6 +142,19 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close route preference dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (routePreferenceRef.current && !routePreferenceRef.current.contains(event.target as Node)) {
+        setIsRoutePreferenceOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -295,6 +318,13 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
 
   // Formatting helpers
   const formatDistance = (meters: number) => {
+    if (distanceUnit === 'mi') {
+      const miles = meters * 0.000621371;
+      if (miles < 0.1) {
+        return `${Math.round(meters * 3.28084)} ft`;
+      }
+      return `${miles.toFixed(1)} mi`;
+    }
     if (meters < 1000) return `${Math.round(meters)} m`;
     return `${(meters / 1000).toFixed(1)} km`;
   };
@@ -332,7 +362,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
         const fromLoc = getLocation(fromItem.locationId);
         const toLoc = getLocation(toItem.locationId);
         if (fromLoc && toLoc) {
-          const dist = calculateHaversineDistance(fromLoc.lat, fromLoc.lng, toLoc.lat, toLoc.lng);
+          const dist = haversineDistanceMeters(fromLoc.lat, fromLoc.lng, toLoc.lat, toLoc.lng);
           totalDistanceMeters += dist;
           
           // Estimate travel duration based on commute mode
@@ -366,85 +396,20 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     };
   };
 
-  // Haversine distance helper for estimations
-  const calculateHaversineDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Helper to parse time string "HH:MM" into minutes since midnight
-  const timeToMinutes = (timeStr: string): number => {
-    const [h, m] = timeStr.split(':').map(Number);
-    return (h || 0) * 60 + (m || 0);
-  };
-
-  // Helper to format minutes since midnight into "HH:MM AM/PM"
-  const formatMinutesToTime = (totalMinutes: number): string => {
-    const normalized = (totalMinutes % (24 * 60) + 24 * 60) % (24 * 60);
-    const hours = Math.floor(normalized / 60);
-    const minutes = normalized % 60;
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 === 0 ? 12 : hours % 12;
-    const displayMinutes = minutes.toString().padStart(2, '0');
-    return `${displayHours}:${displayMinutes} ${ampm}`;
-  };
-
-  // Pre-calculate chronological times for itinerary stops
-  const computedTimes: { [id: string]: { arrive: string; leave: string } } = {};
-  if (itinerary.length > 0) {
-    const firstItem = itinerary[0];
-    const firstStartMinutes = timeToMinutes(firstItem.startTime || '09:00');
-    const firstStayMinutes = firstItem.durationHours * 60 + firstItem.durationMinutes;
-    let currentMinutes = firstStartMinutes + firstStayMinutes;
-    
-    computedTimes[firstItem.id] = {
-      arrive: formatMinutesToTime(firstStartMinutes),
-      leave: formatMinutesToTime(currentMinutes),
+  // Chronological schedule for every stop, computed by the single shared scheduling utility so
+  // rendering here and the reorder-continuity logic in App.tsx can never disagree with each other.
+  const rawTimes = computeItineraryTimes(itinerary, routes, savedLocations);
+  const computedTimes: { [id: string]: { arrive: string; leave: string; arriveMinutes: number; isLocked: boolean; conflictMinutes: number; bufferMinutes: number } } = {};
+  Object.entries(rawTimes).forEach(([id, t]) => {
+    computedTimes[id] = {
+      arrive: formatMinutesToClockTime(t.arriveMinutes),
+      leave: formatMinutesToClockTime(t.leaveMinutes),
+      arriveMinutes: t.arriveMinutes,
+      isLocked: t.isLocked,
+      conflictMinutes: t.conflictMinutes,
+      bufferMinutes: t.bufferMinutes,
     };
-    
-    for (let i = 0; i < itinerary.length - 1; i++) {
-      const item = itinerary[i];
-      const nextItem = itinerary[i + 1];
-      const route = getRouteSegment(item, nextItem);
-      
-      let commuteMinutes = 0;
-      if (route) {
-        commuteMinutes = Math.round(route.duration / 60);
-      } else {
-        const fromLoc = getLocation(item.locationId);
-        const toLoc = getLocation(nextItem.locationId);
-        if (fromLoc && toLoc) {
-          const dist = calculateHaversineDistance(fromLoc.lat, fromLoc.lng, toLoc.lat, toLoc.lng);
-          const speedMap: Record<CommuteMode, number> = {
-            driving: 13.8,
-            transit: 8.3,
-            walking: 1.4,
-            bicycle: 4.2,
-          };
-          const speed = speedMap[item.commuteMode] || 10;
-          commuteMinutes = Math.round((dist / speed) / 60);
-        }
-      }
-      
-      const arrivalMinutes = currentMinutes + commuteMinutes;
-      const stayMinutes = nextItem.durationHours * 60 + nextItem.durationMinutes;
-      currentMinutes = arrivalMinutes + stayMinutes;
-      
-      computedTimes[nextItem.id] = {
-        arrive: formatMinutesToTime(arrivalMinutes),
-        leave: formatMinutesToTime(currentMinutes),
-      };
-    }
-  }
+  });
 
   const stats = calculateTotalStats();
 
@@ -651,7 +616,47 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
       ) : (
         <>
           {/* Compact toggle + Zoom button */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.4rem', alignItems: 'center' }}>
+            <div className="route-preference-custom-wrapper" ref={routePreferenceRef}>
+              <button
+                type="button"
+                className={`compact-toggle-btn ${isRoutePreferenceOpen ? 'active' : ''}`}
+                onClick={() => setIsRoutePreferenceOpen((prev) => !prev)}
+                title="Driving route preference for all routes on the trip"
+              >
+                <span>{routePreference === 'shortest' ? 'Shortest Route' : 'Fastest Route'}</span>
+                <ChevronDown size={14} className={`trip-caret-icon ${isRoutePreferenceOpen ? 'open' : ''}`} />
+              </button>
+
+              {isRoutePreferenceOpen && (
+                <ul className="route-preference-menu" role="listbox">
+                  <li
+                    role="option"
+                    aria-selected={routePreference === 'fastest'}
+                    className={`route-preference-item ${routePreference === 'fastest' ? 'selected' : ''}`}
+                    onClick={() => {
+                      onUpdateRoutePreference('fastest');
+                      setIsRoutePreferenceOpen(false);
+                    }}
+                  >
+                    <span>Fastest Route</span>
+                    {routePreference === 'fastest' && <Check size={14} className="route-preference-checkmark" />}
+                  </li>
+                  <li
+                    role="option"
+                    aria-selected={routePreference === 'shortest'}
+                    className={`route-preference-item ${routePreference === 'shortest' ? 'selected' : ''}`}
+                    onClick={() => {
+                      onUpdateRoutePreference('shortest');
+                      setIsRoutePreferenceOpen(false);
+                    }}
+                  >
+                    <span>Shortest Route</span>
+                    {routePreference === 'shortest' && <Check size={14} className="route-preference-checkmark" />}
+                  </li>
+                </ul>
+              )}
+            </div>
             <button
               type="button"
               className="compact-toggle-btn"
@@ -789,8 +794,8 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                               </span>
                               <input
                                 type="time"
-                                value={item.startTime || '09:00'}
-                                onChange={(e) => onUpdateStartTime(item.id, e.target.value)}
+                                value={item.lockedArrivalTime || '09:00'}
+                                onChange={(e) => onUpdateLockedArrivalTime(item.id, e.target.value)}
                                 style={{
                                   border: '1px solid var(--border-color)',
                                   borderRadius: 'var(--radius-sm)',
@@ -850,11 +855,59 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                           </div>
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.25rem' }}>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }} onClick={(e) => e.stopPropagation()}>
                               <span style={{ fontWeight: 600, color: 'var(--success)' }}>Arrive:</span>
-                              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.arrive}</span>
+                              {item.lockedArrivalTime ? (
+                                <input
+                                  type="time"
+                                  value={item.lockedArrivalTime}
+                                  onChange={(e) => onUpdateLockedArrivalTime(item.id, e.target.value)}
+                                  style={{
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: 'var(--bg-primary)',
+                                    color: 'var(--text-primary)',
+                                    fontFamily: 'var(--font-sans)',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '700',
+                                    padding: '0.1rem 0.25rem',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                  }}
+                                />
+                              ) : (
+                                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{computedTimes[item.id]?.arrive}</span>
+                              )}
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-icon-only"
+                                style={{ width: '1.15rem', height: '1.15rem', padding: 0, opacity: item.lockedArrivalTime ? 1 : 0.5 }}
+                                onClick={() =>
+                                  onUpdateLockedArrivalTime(
+                                    item.id,
+                                    item.lockedArrivalTime ? null : minutesToTimeInputValue(computedTimes[item.id]?.arriveMinutes ?? 0)
+                                  )
+                                }
+                                title={item.lockedArrivalTime ? 'Unlock arrival time' : 'Lock arrival time (e.g. a reservation)'}
+                              >
+                                {item.lockedArrivalTime ? <Lock size={11} /> : <Unlock size={11} />}
+                              </button>
                             </div>
-                            
+
+                            {(computedTimes[item.id]?.conflictMinutes ?? 0) > 0 && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <AlertTriangle size={12} />
+                                <span>Running {computedTimes[item.id].conflictMinutes}m late for this arrival time</span>
+                              </div>
+                            )}
+
+                            {(computedTimes[item.id]?.bufferMinutes ?? 0) > 0 && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                <Check size={12} />
+                                <span>{computedTimes[item.id].bufferMinutes}m to spare before this arrival time</span>
+                              </div>
+                            )}
+
                             {isSpendActive && (
                               <div className="itinerary-duration-picker" onClick={(e) => e.stopPropagation()}>
                                 <Clock size={14} className="text-muted" />
@@ -949,8 +1002,21 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                       <>
                         <div className="itinerary-compact-meta">
                           {!isFirst && computedTimes[item.id]?.arrive && (
-                            <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)' }}>
+                            <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              {item.lockedArrivalTime && <Lock size={10} />}
                               Arrive: {computedTimes[item.id].arrive}
+                            </span>
+                          )}
+                          {(computedTimes[item.id]?.conflictMinutes ?? 0) > 0 && (
+                            <span className="compact-time-badge" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <AlertTriangle size={10} />
+                              {computedTimes[item.id].conflictMinutes}m late
+                            </span>
+                          )}
+                          {(computedTimes[item.id]?.bufferMinutes ?? 0) > 0 && (
+                            <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <Check size={10} />
+                              {computedTimes[item.id].bufferMinutes}m to spare
                             </span>
                           )}
                           {(item.durationHours > 0 || item.durationMinutes > 0) && (
@@ -1154,26 +1220,7 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                           </button>
                         </div>
 
-                        {item.commuteMode === 'driving' && (
-                          <div className="driving-preference-selector">
-                            <button
-                              type="button"
-                              className={`driving-preference-btn ${(!item.routePreference || item.routePreference === 'fastest') ? 'active' : ''}`}
-                              onClick={() => onUpdateRoutePreference(item.id, 'fastest')}
-                              title="Fastest route by travel time"
-                            >
-                              Fastest
-                            </button>
-                            <button
-                              type="button"
-                              className={`driving-preference-btn ${item.routePreference === 'shortest' ? 'active' : ''}`}
-                              onClick={() => onUpdateRoutePreference(item.id, 'shortest')}
-                              title="Shortest route by distance"
-                            >
-                              Shortest
-                            </button>
-                          </div>
-                        )}
+
 
                         {/* Path Details */}
                         {isLoadingRoutes ? (
