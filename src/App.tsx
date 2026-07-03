@@ -8,6 +8,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, Trip, LocationCategory, TripDay } from './types';
 import { areLocationsEquivalent } from './utils/location';
 import { generateDemoTrip } from './utils/dummyData';
+import { preserveArrivalOnPromotion } from './utils/schedule';
 
 // Mapbox Profile Mapping
 const PROFILE_MAP: Record<string, string> = {
@@ -29,6 +30,22 @@ const parseLocalStorageJson = <T,>(key: string): T | null => {
     return null;
   }
 };
+
+// Migrates itinerary items saved before `lockedArrivalTime` replaced the old, first-stop-only
+// `startTime` field: carries the legacy value forward as `lockedArrivalTime` on the first stop
+// (where it's still meaningful) and drops the stale field everywhere else.
+const migrateLegacyStartTime = (trip: Trip): Trip => ({
+  ...trip,
+  days: trip.days.map((day) => ({
+    ...day,
+    itinerary: day.itinerary.map((item, idx) => {
+      const legacyStartTime = (item as ItineraryItem & { startTime?: string }).startTime;
+      if (legacyStartTime === undefined) return item;
+      const { startTime: _startTime, ...rest } = item as ItineraryItem & { startTime?: string };
+      return idx === 0 && !rest.lockedArrivalTime ? { ...rest, lockedArrivalTime: legacyStartTime } : rest;
+    }),
+  })),
+});
 
 function App() {
   const [activeTab, setActiveTab] = useState<'search' | 'itinerary'>('itinerary');
@@ -68,7 +85,7 @@ function App() {
     if (parsed) {
       return parsed.map((trip) => {
         if (!trip.days || trip.days.length === 0) {
-          return {
+          return migrateLegacyStartTime({
             ...trip,
             days: [
               {
@@ -78,9 +95,9 @@ function App() {
                 itinerary: trip.itinerary || [],
               },
             ],
-          };
+          });
         }
-        return trip;
+        return migrateLegacyStartTime(trip);
       });
     }
 
@@ -520,12 +537,12 @@ function App() {
     }));
   };
 
-  const handleUpdateStartTime = (itemId: string, startTime: string) => {
+  const handleUpdateLockedArrivalTime = (itemId: string, lockedArrivalTime: string | null) => {
     updateActiveTrip((trip) => {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
       const day = trip.days[targetDayIdx];
       const updatedItinerary = day.itinerary.map((item) =>
-        item.id === itemId ? { ...item, startTime } : item
+        item.id === itemId ? { ...item, lockedArrivalTime: lockedArrivalTime || undefined } : item
       );
       const updatedDays = trip.days.map((d, idx) =>
         idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
@@ -566,13 +583,14 @@ function App() {
 
       const newItinerary = [...day.itinerary];
       const targetIndex = direction === 'up' ? index - 1 : index + 1;
-      
+
       const temp = newItinerary[index];
       newItinerary[index] = newItinerary[targetIndex];
       newItinerary[targetIndex] = temp;
-      
+
+      const promotedItinerary = preserveArrivalOnPromotion(day.itinerary, newItinerary, routes, trip.savedLocations);
       const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: newItinerary } : d
+        idx === targetDayIdx ? { ...d, itinerary: promotedItinerary } : d
       );
       return {
         ...trip,
@@ -584,8 +602,10 @@ function App() {
   const handleSetItinerary = (newItinerary: ItineraryItem[]) => {
     updateActiveTrip((trip) => {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const day = trip.days[targetDayIdx];
+      const promotedItinerary = preserveArrivalOnPromotion(day.itinerary, newItinerary, routes, trip.savedLocations);
       const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: newItinerary } : d
+        idx === targetDayIdx ? { ...d, itinerary: promotedItinerary } : d
       );
       return {
         ...trip,
@@ -599,8 +619,9 @@ function App() {
       const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
       const day = trip.days[targetDayIdx];
       const updatedItinerary = day.itinerary.filter((item) => item.locationId !== locationId);
+      const promotedItinerary = preserveArrivalOnPromotion(day.itinerary, updatedItinerary, routes, trip.savedLocations);
       const updatedDays = trip.days.map((d, idx) =>
-        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
+        idx === targetDayIdx ? { ...d, itinerary: promotedItinerary } : d
       );
       return {
         ...trip,
@@ -854,7 +875,7 @@ function App() {
               onSetItinerary={handleSetItinerary}
               onRemoveFromItinerary={handleRemoveFromItinerary}
               onSelectLocation={setActiveLocation}
-              onUpdateStartTime={handleUpdateStartTime}
+              onUpdateLockedArrivalTime={handleUpdateLockedArrivalTime}
               tripDate={activeTrip?.days?.[0]?.date || ''}
               onUpdateTripDate={handleUpdateStartDate}
               days={activeTrip?.days || []}
