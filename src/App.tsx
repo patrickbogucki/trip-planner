@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { SearchPanel } from './components/SearchPanel';
+import { PinnedPanel } from './components/PinnedPanel';
+import { FloatingSearch } from './components/FloatingSearch';
 import { ItineraryPanel } from './components/ItineraryPanel';
 import { MapComponent } from './components/MapComponent';
 import { TripSelector } from './components/TripSelector';
@@ -48,7 +49,7 @@ const migrateLegacyStartTime = (trip: Trip): Trip => ({
 });
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'itinerary'>('itinerary');
+  const [activeTab, setActiveTab] = useState<'pins' | 'itinerary'>('itinerary');
   
   // Settings & Preferences States
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
@@ -846,20 +847,15 @@ function App() {
 
         {/* Panels Content */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}>
-          {activeTab === 'search' ? (
-            <SearchPanel
+          {activeTab === 'pins' ? (
+            <PinnedPanel
               savedLocations={savedLocations}
               days={activeTrip?.days || []}
               activeLocation={activeLocation}
-              onAddLocation={handleAddLocation}
               onRemoveLocation={handleRemoveLocation}
               onToggleLocationDay={handleToggleLocationDay}
               onSelectLocation={setActiveLocation}
               onUpdateLocationCategory={handleUpdateLocationCategory}
-              viewportCenter={viewportCenter}
-              viewportBbox={viewportBbox}
-              searchResults={searchResults}
-              onSetSearchResults={setSearchResults}
             />
           ) : (
             <ItineraryPanel
@@ -895,20 +891,31 @@ function App() {
       </aside>
 
       {/* Main Map View */}
-      <main style={{ flex: 1, height: '100%' }}>
+      <main style={{ flex: 1, height: '100%', position: 'relative' }}>
         <MapComponent
           savedLocations={savedLocations}
           itinerary={itinerary}
           routes={routes}
           activeLocation={activeLocation}
           onSelectLocation={setActiveLocation}
-          onAddLocation={handleAddLocation}
           onRegisterZoom={(fn) => { zoomToTripRef.current = fn; }}
           searchResults={searchResults}
           onViewportChange={(center, bbox) => {
             setViewportCenter(center);
             setViewportBbox(bbox);
           }}
+          mapboxToken={userMapboxToken || undefined}
+        />
+        <FloatingSearch
+          savedLocations={savedLocations}
+          activeLocation={activeLocation}
+          onAddLocation={handleAddLocation}
+          onRemoveLocation={handleRemoveLocation}
+          onSelectLocation={setActiveLocation}
+          viewportCenter={viewportCenter}
+          viewportBbox={viewportBbox}
+          searchResults={searchResults}
+          onSetSearchResults={setSearchResults}
           mapboxToken={userMapboxToken || undefined}
         />
       </main>
