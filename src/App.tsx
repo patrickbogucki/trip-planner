@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Compass, Calendar } from 'lucide-react';
+import { Compass, Calendar, Settings } from 'lucide-react';
 import { SearchPanel } from './components/SearchPanel';
 import { ItineraryPanel } from './components/ItineraryPanel';
 import { MapComponent } from './components/MapComponent';
@@ -30,7 +30,16 @@ const parseLocalStorageJson = <T,>(key: string): T | null => {
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'search' | 'itinerary'>('itinerary');
+  const [activeTab, setActiveTab] = useState<'search' | 'itinerary' | 'settings'>('itinerary');
+  const [noteLinesMax, setNoteLinesMax] = useState<number>(() => {
+    const saved = localStorage.getItem('horizon_note_lines_max');
+    return saved ? Number(saved) : 3;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('horizon_note_lines_max', String(noteLinesMax));
+  }, [noteLinesMax]);
+
   const [activeLocation, setActiveLocation] = useState<Location | null>(null);
   const [routes, setRoutes] = useState<RouteSegment[]>([]);
   const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
@@ -501,6 +510,23 @@ function App() {
     });
   };
 
+  const handleUpdateNote = (itemId: string, note: string) => {
+    updateActiveTrip((trip) => {
+      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const day = trip.days[targetDayIdx];
+      const updatedItinerary = day.itinerary.map((item) =>
+        item.id === itemId ? { ...item, note: note === '' ? undefined : note } : item
+      );
+      const updatedDays = trip.days.map((d, idx) =>
+        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
+      );
+      return {
+        ...trip,
+        days: updatedDays,
+      };
+    });
+  };
+
   const handleUpdateStartDate = (date: string) => {
     updateActiveTrip((trip) => {
       // Parse start date and cascade each subsequent day
@@ -764,6 +790,13 @@ function App() {
             <Compass size={16} />
             Search & Pins
           </button>
+          <button
+            className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings size={16} />
+            Settings
+          </button>
         </div>
 
         {/* Panels Content */}
@@ -783,6 +816,41 @@ function App() {
               searchResults={searchResults}
               onSetSearchResults={setSearchResults}
             />
+          ) : activeTab === 'settings' ? (
+            <div className="settings-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--text-primary)' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Settings size={16} style={{ color: 'var(--accent)' }} />
+                <span>Preferences</span>
+              </h2>
+              
+              <div className="setting-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Note Display Limit (Expanded View)
+                </label>
+                <select 
+                  value={noteLinesMax}
+                  onChange={(e) => setNoteLinesMax(Number(e.target.value))}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    padding: '0.35rem 0.5rem',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    width: '100%',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                    <option key={n} value={n}>{n} {n === 1 ? 'line' : 'lines'}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+                  Controls the maximum visible height of expanded note textareas before scrolling is enabled.
+                </p>
+              </div>
+            </div>
           ) : (
             <ItineraryPanel
               itinerary={itinerary}
@@ -797,6 +865,7 @@ function App() {
               onRemoveFromItinerary={handleRemoveFromItinerary}
               onSelectLocation={setActiveLocation}
               onUpdateStartTime={handleUpdateStartTime}
+              onUpdateNote={handleUpdateNote}
               tripDate={activeTrip?.days?.[0]?.date || ''}
               onUpdateTripDate={handleUpdateStartDate}
               days={activeTrip?.days || []}
@@ -806,6 +875,7 @@ function App() {
               onRemoveDay={handleRemoveDay}
               onZoomToTrip={() => zoomToTripRef.current?.()}
               canZoom={savedLocations.length > 0}
+              noteLinesMax={noteLinesMax}
               onAddToItinerary={(locId) => handleAddToItinerary(locId, activeDayIndex)}
               onInsertAtItinerary={(locId, idx) => handleInsertAtItinerary(locId, idx, activeDayIndex)}
               onLoadDemoTrip={handleLoadDemoTrip}

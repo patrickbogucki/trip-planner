@@ -113,11 +113,16 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       );
     });
 
-    setTimeout(() => {
-      mapInstance.invalidateSize();
+    const timerId = setTimeout(() => {
+      try {
+        mapInstance.invalidateSize();
+      } catch (err) {
+        // Map might have been unmounted
+      }
     }, 100);
 
     return () => {
+      clearTimeout(timerId);
       mapInstance.remove();
       setMap(null);
       // Clear leaflet refs to prevent stale data in React 18 Strict Mode double-mounts

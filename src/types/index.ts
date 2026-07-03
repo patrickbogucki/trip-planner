@@ -19,6 +19,7 @@ export interface ItineraryItem {
   commuteMode: CommuteMode; // commute mode to the NEXT location in the itinerary
   startTime?: string; // leave time for the first stop (format "HH:MM")
   routePreference?: 'shortest' | 'fastest'; // driving route preference
+  note?: string; // optional notes/comments for the stop
 }
 
 export interface RouteSegment {
