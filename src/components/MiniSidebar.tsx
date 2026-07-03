@@ -1,9 +1,8 @@
-import React from 'react';
-import { Compass, Calendar, Search, Settings } from 'lucide-react';
+import { Compass, Calendar, MapPin, Settings } from 'lucide-react';
 
 interface MiniSidebarProps {
-  activeTab: 'itinerary' | 'search';
-  onTabChange: (tab: 'itinerary' | 'search') => void;
+  activeTab: 'itinerary' | 'pins';
+  onTabChange: (tab: 'itinerary' | 'pins') => void;
   onSettingsClick: () => void;
   isSettingsOpen: boolean;
 }
@@ -32,13 +31,13 @@ export const MiniSidebar: React.FC<MiniSidebarProps> = ({
           <span>Itinerary</span>
         </button>
         <button
-          className={`mini-sidebar-btn ${activeTab === 'search' && !isSettingsOpen ? 'active' : ''}`}
-          onClick={() => onTabChange('search')}
-          title="Search & Pins"
-          aria-label="Search & Pins"
+          className={`mini-sidebar-btn ${activeTab === 'pins' && !isSettingsOpen ? 'active' : ''}`}
+          onClick={() => onTabChange('pins')}
+          title="Pinned Locations"
+          aria-label="Pinned Locations"
         >
-          <Search size={20} />
-          <span>Search</span>
+          <MapPin size={20} />
+          <span>Pins</span>
         </button>
       </div>
 
