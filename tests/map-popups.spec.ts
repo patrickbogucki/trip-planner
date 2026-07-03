@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Map Popups and Tooltips E2E Tests', () => {
-  test('should display tooltips and popups with identical sizes and manage tooltip visibility dynamically on popup events', async ({ page }) => {
+  test('should display persistent tooltips on click and toggle them off on click-again or click-away', async ({ page }) => {
     // Go to the home page
     await page.goto('/');
 
@@ -39,57 +39,37 @@ test.describe('Map Popups and Tooltips E2E Tests', () => {
     await page.mouse.move(0, 0);
     await expect(tooltip).not.toBeVisible();
 
-    // 2. Verify Click Popup opens and disables tooltip
-    // Click the marker to select it
+    // 2. Verify Click on marker makes the tooltip persistent (remains visible when mouse moves away)
+    // Click the marker to make it active/selected
     await marker.click();
 
-    const popup = page.locator('.leaflet-popup.map-popup-bubble').first();
-    await expect(popup).toBeVisible();
-
-    const popupContent = page.locator('.leaflet-popup.map-popup-bubble .leaflet-popup-content').first();
-    await expect(popupContent).toBeVisible();
-
-    // Verify click popup content styles match tooltip exactly
-    const popupContentStyles = await popupContent.evaluate((el) => {
-      const style = window.getComputedStyle(el);
-      return {
-        width: style.width,
-        whiteSpace: style.whiteSpace,
-      };
-    });
-
-    const popupWrapperStyles = await page.locator('.leaflet-popup.map-popup-bubble .leaflet-popup-content-wrapper').first().evaluate((el) => {
-      const style = window.getComputedStyle(el);
-      return {
-        fontWeight: style.fontWeight,
-      };
-    });
-
-    expect(popupWrapperStyles.fontWeight).toBe('400');
-    expect(parseFloat(popupContentStyles.width)).toBeGreaterThan(80);
-    expect(popupContentStyles.whiteSpace).toBe('normal');
-
-    // Hover over the clicked (active) marker again
-    await marker.hover();
-
-    // The tooltip should NOT be visible because it is unbound for the active marker
-    await expect(tooltip).not.toBeVisible();
+    // The tooltip should now be visible and persistent
+    await expect(tooltip).toBeVisible();
 
     // Move mouse away
     await page.mouse.move(0, 0);
 
-    // 3. Verify Tooltip Re-enables when Clicked Off (Popup Closed)
-    // Click on the map background to close the popup
+    // The tooltip should STILL be visible (persistent)
+    await expect(tooltip).toBeVisible();
+
+    // 3. Verify clicking the marker again makes it unpersistent and closes it when mouse is away
+    await marker.click();
+    await page.mouse.move(0, 0);
+
+    // The tooltip should now be closed/not visible
+    await expect(tooltip).not.toBeVisible();
+
+    // 4. Verify Click again to make persistent, then Click Away to close
+    await marker.click();
+    await expect(tooltip).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(tooltip).toBeVisible();
+
+    // Click on the map background to click away
     const mapContainer = page.locator('.leaflet-container');
     await mapContainer.click({ position: { x: 500, y: 500 }, force: true });
 
-    // The popup should be gone
-    await expect(popup).not.toBeVisible();
-
-    // Hover over the marker again
-    await marker.hover();
-
-    // The tooltip should show up again!
-    await expect(tooltip).toBeVisible();
+    // The tooltip should now be closed/not visible
+    await expect(tooltip).not.toBeVisible();
   });
 });
