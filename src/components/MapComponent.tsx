@@ -13,6 +13,34 @@ const formatPopupContent = (name: string) => {
   return displayName;
 };
 
+const updateMarkerTooltip = (marker: L.Marker, name: string, isActive: boolean) => {
+  const tooltipText = formatPopupContent(name);
+  const currentTooltip = marker.getTooltip();
+
+  if (currentTooltip) {
+    const isCurrentlyPermanent = currentTooltip.options.permanent;
+    if (isCurrentlyPermanent === isActive) {
+      if (isActive && !marker.isTooltipOpen()) {
+        marker.openTooltip();
+      }
+      return;
+    }
+  }
+
+  marker.unbindTooltip();
+  marker.bindTooltip(tooltipText, {
+    direction: 'top',
+    offset: [0, -14],
+    opacity: 0.9,
+    className: 'map-tooltip',
+    permanent: isActive,
+  });
+
+  if (isActive) {
+    marker.openTooltip();
+  }
+};
+
 interface MapComponentProps {
   savedLocations: Location[];
   itinerary: ItineraryItem[];
@@ -40,6 +68,17 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const [map, setMap] = useState<L.Map | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   
+  const activeLocationRef = useRef(activeLocation);
+  const onSelectLocationRef = useRef(onSelectLocation);
+
+  useEffect(() => {
+    activeLocationRef.current = activeLocation;
+  }, [activeLocation]);
+
+  useEffect(() => {
+    onSelectLocationRef.current = onSelectLocation;
+  }, [onSelectLocation]);
+
   const [isSatellite, setIsSatellite] = useState(false);
   const streetLayerRef = useRef<L.TileLayer | null>(null);
   const satelliteLayerRef = useRef<L.TileLayer | null>(null);
@@ -126,6 +165,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       );
     });
 
+    mapInstance.on('click', () => {
+      onSelectLocationRef.current(null);
+    });
+
     setTimeout(() => {
       mapInstance.invalidateSize();
     }, 100);
@@ -207,10 +250,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         popupAnchor: [0, -14],
       });
 
-      const tooltipText = formatPopupContent(loc.name);
-
-      const popupContentHtml = formatPopupContent(loc.name);
-
+      const isActive = activeLocationRef.current ? (activeLocationRef.current.id === loc.id || areLocationsEquivalent(activeLocationRef.current, loc)) : false;
 
       if (markersRef.current[markerId]) {
         // Update existing marker position & icon
@@ -218,70 +258,36 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         existingMarker.setLatLng([loc.lat, loc.lng]);
         existingMarker.setIcon(customIcon);
         
-        // Re-bind popup
-        existingMarker.unbindPopup();
-        existingMarker.bindPopup(popupContentHtml, {
-          className: 'map-popup-bubble',
-          closeButton: false,
-          offset: [0, -7],
-        });
-        
-        // Manage tooltip dynamically based on popup visibility
-        existingMarker.off('popupopen');
-        existingMarker.off('popupclose');
-        existingMarker.on('popupopen', () => {
-          existingMarker.unbindTooltip();
-        });
-        existingMarker.on('popupclose', () => {
-          existingMarker.unbindTooltip();
-          existingMarker.bindTooltip(tooltipText, {
-            direction: 'top',
-            offset: [0, -14],
-            opacity: 0.9,
-            className: 'map-tooltip',
-          });
-        });
+        updateMarkerTooltip(existingMarker, loc.name, isActive);
 
-        existingMarker.unbindTooltip();
-        if (!existingMarker.isPopupOpen()) {
-          existingMarker.bindTooltip(tooltipText, {
-            direction: 'top',
-            offset: [0, -14],
-            opacity: 0.9,
-            className: 'map-tooltip',
-          });
-        }
+        existingMarker.off('click');
+        existingMarker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
+        });
       } else {
         // Create new marker
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
-        marker.bindPopup(popupContentHtml, {
-          className: 'map-popup-bubble',
-          closeButton: false,
-          offset: [0, -7],
-        });
 
-        marker.on('popupopen', () => {
-          marker.unbindTooltip();
-        });
-        marker.on('popupclose', () => {
-          marker.unbindTooltip();
-          marker.bindTooltip(tooltipText, {
-            direction: 'top',
-            offset: [0, -14],
-            opacity: 0.9,
-            className: 'map-tooltip',
-          });
-        });
+        updateMarkerTooltip(marker, loc.name, isActive);
 
-        marker.bindTooltip(tooltipText, {
-          direction: 'top',
-          offset: [0, -14],
-          opacity: 0.9,
-          className: 'map-tooltip',
-        });
-
-        marker.on('click', () => {
-          onSelectLocation(loc);
+        marker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
 
         markersRef.current[markerId] = marker;
@@ -295,7 +301,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         delete markersRef.current[id];
       }
     });
-  }, [map, savedLocations, itinerary, searchResults, onSelectLocation]);
+  }, [map, savedLocations, itinerary, searchResults]);
 
   // Sync Active / Preview Location
   useEffect(() => {
@@ -307,31 +313,28 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       previewMarkerRef.current = null;
     }
 
+    // Update tooltips on existing markers to reflect active state
+    Object.keys(markersRef.current).forEach((id) => {
+      const marker = markersRef.current[id];
+      const loc = savedLocations.find((l) => l.id === id);
+      if (loc) {
+        const isActive = activeLocation ? (activeLocation.id === loc.id || areLocationsEquivalent(activeLocation, loc)) : false;
+        updateMarkerTooltip(marker, loc.name, isActive);
+      }
+    });
+
     if (activeLocation) {
       // Check if location is already pinned
       const matchedSavedLoc = savedLocations.find((loc) => loc.id === activeLocation.id || areLocationsEquivalent(loc, activeLocation));
       const isAlreadyPinned = !!matchedSavedLoc;
 
       if (isAlreadyPinned && matchedSavedLoc) {
-        // If already pinned, use the existing marker
-        const existingMarker = markersRef.current[matchedSavedLoc.id];
+        // If already pinned, just pan to location
         map.invalidateSize();
-        if (existingMarker) {
-          // Pan to location
-          map.panTo([activeLocation.lat, activeLocation.lng], {
-            animate: true,
-            duration: 0.75,
-          });
-          
-          // Open the popup on the existing marker
-          existingMarker.openPopup();
-        } else {
-          // Fallback if marker not in ref yet
-          map.panTo([activeLocation.lat, activeLocation.lng], {
-            animate: true,
-            duration: 0.75,
-          });
-        }
+        map.panTo([activeLocation.lat, activeLocation.lng], {
+          animate: true,
+          duration: 0.75,
+        });
       } else {
         // If not pinned (temporary search suggestion), create a pulsing preview marker
         const catInfo = getCategory(activeLocation.category || 'other');
@@ -352,25 +355,15 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
         const previewMarker = L.marker([activeLocation.lat, activeLocation.lng], { icon: customIcon }).addTo(map);
 
-        const previewPopupHtml = formatPopupContent(activeLocation.name);
-        previewMarker.bindPopup(previewPopupHtml, {
-          className: 'map-popup-bubble',
-          closeButton: false,
-          offset: [0, -7],
+        updateMarkerTooltip(previewMarker, activeLocation.name, true);
+
+        previewMarker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          onSelectLocationRef.current(null);
         });
 
-        previewMarker.on('popupopen', () => {
-          previewMarker.unbindTooltip();
-        });
-        previewMarker.on('popupclose', () => {
-          previewMarker.unbindTooltip();
-          previewMarker.bindTooltip(formatPopupContent(activeLocation.name), {
-            direction: 'top',
-            offset: [0, -14],
-            opacity: 0.9,
-            className: 'map-tooltip',
-          });
-        });
         previewMarkerRef.current = previewMarker;
 
         map.invalidateSize();
@@ -378,8 +371,6 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           animate: true,
           duration: 0.75,
         });
-
-        previewMarker.openPopup();
       }
     }
   }, [map, activeLocation, savedLocations]);
@@ -429,6 +420,20 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           offset: [0, -14],
           opacity: 0.9,
           className: 'map-tooltip',
+          permanent: false,
+        });
+
+        existingMarker.off('click');
+        existingMarker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
       } else {
         const marker = L.marker([loc.lat, loc.lng], { icon: customIcon }).addTo(map);
@@ -438,10 +443,19 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           offset: [0, -14],
           opacity: 0.9,
           className: 'map-tooltip',
+          permanent: false,
         });
 
-        marker.on('click', () => {
-          onSelectLocation(loc);
+        marker.on('click', (e) => {
+          if (e.originalEvent) {
+            e.originalEvent.stopPropagation();
+          }
+          const currentActive = activeLocationRef.current;
+          if (currentActive && (currentActive.id === loc.id || areLocationsEquivalent(currentActive, loc))) {
+            onSelectLocationRef.current(null);
+          } else {
+            onSelectLocationRef.current(loc);
+          }
         });
 
         searchMarkersRef.current[markerId] = marker;
