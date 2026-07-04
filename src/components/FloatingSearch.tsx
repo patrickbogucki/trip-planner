@@ -430,10 +430,11 @@ export const FloatingSearch: React.FC<FloatingSearchProps> = ({
                       padding: '0.4rem 0.5rem',
                       gap: '0.5rem',
                       borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-color)',
-                      borderColor: isActive ? 'var(--accent)' : 'var(--border-color)',
-                      background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                      borderTop: `1px solid ${isActive ? 'var(--accent)' : 'var(--border-color)'}`,
+                      borderRight: `1px solid ${isActive ? 'var(--accent)' : 'var(--border-color)'}`,
+                      borderBottom: `1px solid ${isActive ? 'var(--accent)' : 'var(--border-color)'}`,
                       borderLeft: `3px solid ${catInfo.color}`,
+                      background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
                       cursor: 'pointer',
                       transition: 'all var(--transition-fast)'
                     }}
