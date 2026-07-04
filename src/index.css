@@ -2314,11 +2314,12 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   top: 0;
   left: 68px;
-  width: 320px;
+  width: 420px;
+  min-width: 380px;
   height: 100%;
-  background: var(--bg-glass);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  background: var(--bg-secondary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-right: 1px solid var(--border-color);
   box-shadow: var(--shadow-xl);
   z-index: 12;
@@ -2733,4 +2734,3 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none !important;
   border: 1px solid var(--border-color) !important;
 }
-
