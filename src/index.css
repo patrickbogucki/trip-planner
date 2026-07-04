@@ -2452,7 +2452,24 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   gap: 0.75rem;
   pointer-events: none;
+  overflow-x: visible;
+  overflow-y: auto;
 }
+
+/* Results container: transparent wrapper so cards flow in parent flex column */
+.floating-search-results-container {
+  display: contents;
+}
+
+/* Search results card: tall enough to show all 10 results (~52px each + header) */
+.search-results-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 560px;
+  overflow: hidden;
+}
+
 
 .floating-search-card {
   background: var(--bg-glass);

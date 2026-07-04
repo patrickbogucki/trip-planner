@@ -393,146 +393,151 @@ export const FloatingSearch: React.FC<FloatingSearchProps> = ({
         )}
       </form>
 
-      {/* Search Results List Card */}
-      {searchResults.length > 0 && (
-        <div className="card floating-search-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Search Results ({searchResults.length})
-            </span>
-            <button
-              type="button"
-              className="btn btn-secondary btn-icon-only"
-              style={{ width: '1.5rem', height: '1.5rem', padding: 0 }}
-              onClick={() => onSetSearchResults([])}
-              title="Clear results"
-            >
-              <X size={12} />
-            </button>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingRight: '0.1rem' }}>
-            {searchResults.map((loc) => {
-              const catInfo = getCategory(loc.category || 'other');
-              const Icon = catInfo.icon;
-              const isActive = activeLocation && (activeLocation.id === loc.id || areLocationsEquivalent(activeLocation, loc));
-              
-              return (
-                <div
-                  key={loc.id}
-                  className="search-result-item"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: '0.4rem 0.5rem',
-                    gap: '0.5rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-color)',
-                    borderColor: isActive ? 'var(--accent)' : 'var(--border-color)',
-                    background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
-                    borderLeft: `3px solid ${catInfo.color}`,
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-fast)'
-                  }}
-                  onClick={() => onSelectLocation(loc)}
-                >
-                  <div style={{ color: catInfo.color, background: `${catInfo.color}15`, padding: '0.25rem', borderRadius: '0.25rem', flexShrink: 0 }}>
-                    <Icon size={14} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {loc.name}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {loc.displayName}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* Results container — stacks below on short screens, floats to the right on tall screens */}
+      <div className="floating-search-results-container">
 
-      {/* Active / Pinned Selected Location Card */}
-      {activeLocation && (() => {
-        const isSaved = isLocationSaved(activeLocation.lat, activeLocation.lng);
-        const matchedSavedLoc = savedLocations.find(
-          (s) => s.id === activeLocation.id || areLocationsEquivalent(s, activeLocation)
-        );
-        const borderCol = isSaved && matchedSavedLoc ? getCategory(matchedSavedLoc.category).color : 'var(--accent)';
-        
-        return (
-          <div className="card floating-search-card" style={{ borderLeft: `4px solid ${borderCol}` }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: isSaved ? 'var(--success)' : 'var(--accent)', textTransform: 'uppercase' }}>
-                  {isSaved ? 'Pinned Location' : 'Selected Location'}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-icon-only"
-                  style={{ width: '1.5rem', height: '1.5rem', padding: 0 }}
-                  onClick={() => onSelectLocation(null)}
-                  title="Close details"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-              <h3 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>{activeLocation.name}</h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>{activeLocation.displayName}</p>
-              
-              {isSaved && matchedSavedLoc ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    Category: <strong style={{ color: 'var(--text-primary)' }}>{getCategory(matchedSavedLoc.category).label}</strong>
-                  </div>
-                  <button 
-                    className="btn btn-danger" 
-                    style={{ padding: '0.4rem', fontSize: '0.8rem', height: '2rem', width: '100%' }}
-                    onClick={() => {
-                      onRemoveLocation(matchedSavedLoc.id);
+        {/* Search Results List Card */}
+        {searchResults.length > 0 && (
+          <div className="card floating-search-card search-results-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                Search Results ({searchResults.length})
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-icon-only"
+                style={{ width: '1.5rem', height: '1.5rem', padding: 0 }}
+                onClick={() => onSetSearchResults([])}
+                title="Clear results"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.4rem', paddingRight: '0.1rem' }}>
+              {searchResults.slice(0, 10).map((loc) => {
+                const catInfo = getCategory(loc.category || 'other');
+                const Icon = catInfo.icon;
+                const isActive = activeLocation && (activeLocation.id === loc.id || areLocationsEquivalent(activeLocation, loc));
+                
+                return (
+                  <div
+                    key={loc.id}
+                    className="search-result-item"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: '0.4rem 0.5rem',
+                      gap: '0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-color)',
+                      borderColor: isActive ? 'var(--accent)' : 'var(--border-color)',
+                      background: isActive ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                      borderLeft: `3px solid ${catInfo.color}`,
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)'
                     }}
+                    onClick={() => onSelectLocation(loc)}
                   >
-                    Unpin Location
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {/* Category Select Dropdown */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', margin: '0.25rem 0' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Category</span>
-                    <select
-                      className="text-input"
-                      style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: '2rem' }}
-                      value={previewCategory}
-                      onChange={(e) => setPreviewCategory(e.target.value as LocationCategory)}
-                    >
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ color: catInfo.color, background: `${catInfo.color}15`, padding: '0.25rem', borderRadius: '0.25rem', flexShrink: 0 }}>
+                      <Icon size={14} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {loc.name}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {loc.displayName}
+                      </div>
+                    </div>
                   </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem', height: '2rem' }}
-                      onClick={() => {
-                        onAddLocation({ ...activeLocation, category: previewCategory });
-                      }}
-                    >
-                      <Plus size={14} style={{ marginRight: '0.25rem', display: 'inline-block', verticalAlign: 'middle' }} /> Pin Location
-                    </button>
-                  </div>
-                </>
-              )}
+                );
+              })}
             </div>
           </div>
-        );
-      })()}
+        )}
+
+        {/* Active / Pinned Selected Location Card */}
+        {activeLocation && (() => {
+          const isSaved = isLocationSaved(activeLocation.lat, activeLocation.lng);
+          const matchedSavedLoc = savedLocations.find(
+            (s) => s.id === activeLocation.id || areLocationsEquivalent(s, activeLocation)
+          );
+          const borderCol = isSaved && matchedSavedLoc ? getCategory(matchedSavedLoc.category).color : 'var(--accent)';
+          
+          return (
+            <div className="card floating-search-card" style={{ borderLeft: `4px solid ${borderCol}` }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: isSaved ? 'var(--success)' : 'var(--accent)', textTransform: 'uppercase' }}>
+                    {isSaved ? 'Pinned Location' : 'Selected Location'}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-icon-only"
+                    style={{ width: '1.5rem', height: '1.5rem', padding: 0 }}
+                    onClick={() => onSelectLocation(null)}
+                    title="Close details"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+                <h3 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>{activeLocation.name}</h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>{activeLocation.displayName}</p>
+                
+                {isSaved && matchedSavedLoc ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      Category: <strong style={{ color: 'var(--text-primary)' }}>{getCategory(matchedSavedLoc.category).label}</strong>
+                    </div>
+                    <button 
+                      className="btn btn-danger" 
+                      style={{ padding: '0.4rem', fontSize: '0.8rem', height: '2rem', width: '100%' }}
+                      onClick={() => {
+                        onRemoveLocation(matchedSavedLoc.id);
+                      }}
+                    >
+                      Unpin Location
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {/* Category Select Dropdown */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', margin: '0.25rem 0' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Category</span>
+                      <select
+                        className="text-input"
+                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: '2rem' }}
+                        value={previewCategory}
+                        onChange={(e) => setPreviewCategory(e.target.value as LocationCategory)}
+                      >
+                        {CATEGORIES.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ flex: 1, padding: '0.4rem', fontSize: '0.8rem', height: '2rem' }}
+                        onClick={() => {
+                          onAddLocation({ ...activeLocation, category: previewCategory });
+                        }}
+                      >
+                        <Plus size={14} style={{ marginRight: '0.25rem', display: 'inline-block', verticalAlign: 'middle' }} /> Pin Location
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+      </div>
     </div>
   );
 };
