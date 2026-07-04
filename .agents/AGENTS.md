@@ -27,7 +27,8 @@ When modifying the data model (e.g. adding or changing fields in `Trip`, `Locati
 
 ## Roadmap Management
 - Maintain a structured project roadmap in the conversation's brain folder (e.g., `roadmap.md`).
-- As features/roadmap items are completed (verified by git history or codebase implementation), update the `roadmap.md` file to cross off those items using `~~**Item**: ...~~ (Completed) style.
+- Do NOT cross off or mark items as completed in `roadmap.md` until the work is officially merged into the `main` branch (do not mark them off during active feature development/iteration).
+
 
 ## Dev Server Management and Testing
 - **Run Dev Server on Completion**: Once you complete your implementation and verify that the build compiles, you MUST check if a dev server is already running in this worktree/workspace using `npm run dev:status`.

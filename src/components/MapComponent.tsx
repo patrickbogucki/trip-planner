@@ -169,11 +169,16 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       onSelectLocationRef.current(null);
     });
 
-    setTimeout(() => {
-      mapInstance.invalidateSize();
+    const timerId = setTimeout(() => {
+      try {
+        mapInstance.invalidateSize();
+      } catch (err) {
+        // Map might have been unmounted
+      }
     }, 100);
 
     return () => {
+      clearTimeout(timerId);
       mapInstance.remove();
       mapRef.current = null;
       setMap(null);

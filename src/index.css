@@ -2067,6 +2067,80 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 15;
 }
 
+/* Itinerary Card Notes Styles */
+.itinerary-card-note-section {
+  margin-top: 0.65rem;
+  width: 100%;
+}
+
+.itinerary-card-note-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  resize: none; /* Disable manual resize */
+  max-height: 68px; /* Cap at 3 lines */
+  overflow-y: auto;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  outline: none;
+  min-height: 28px;
+  box-sizing: border-box;
+}
+
+.itinerary-card-note-input:hover {
+  background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.itinerary-card-note-input:focus {
+  background: var(--bg-primary);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.itinerary-card-note-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.compact-note-badge {
+  cursor: help;
+}
+
+.compact-note-preview {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-note-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-top: 0.65rem;
+  transition: all var(--transition-fast);
+}
+
+.add-note-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .mini-sidebar-logo {
   display: flex;
   align-items: center;
@@ -2120,6 +2194,108 @@ h1, h2, h3, h4, h5, h6 {
 .mini-sidebar-btn.active {
   color: var(--accent);
   background: var(--accent-light);
+}
+
+.add-note-btn svg {
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.add-note-btn:hover svg {
+  color: var(--accent);
+}
+
+/* Compact View Notes Popover (Inline) */
+.compact-note-badge {
+  cursor: pointer;
+  transition: all var(--transition-fast) !important;
+}
+
+.compact-note-badge:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-light) !important;
+}
+
+.compact-note-full-view {
+  margin-top: 0.45rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  animation: compact-note-slideDown var(--transition-fast) ease-out;
+  text-align: left;
+}
+
+.compact-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.15rem;
+}
+
+.compact-note-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 1.15rem;
+  height: 1.15rem;
+  transition: all var(--transition-fast);
+}
+
+.compact-note-close:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.compact-note-body {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+@keyframes compact-note-slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Compact Note Full Width Row Styles */
+.compact-note-badge-line {
+  margin-top: 0.35rem;
+  width: 100%;
+  display: flex;
+}
+
+.full-width-note-badge {
+  display: inline-flex !important;
+  max-width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.compact-note-full-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .mini-sidebar-btn.active::before {
@@ -2557,5 +2733,4 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none !important;
   border: 1px solid var(--border-color) !important;
 }
-
 

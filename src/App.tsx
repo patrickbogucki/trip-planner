@@ -50,6 +50,14 @@ const migrateLegacyStartTime = (trip: Trip): Trip => ({
 
 function App() {
   const [activeTab, setActiveTab] = useState<'pins' | 'itinerary'>('itinerary');
+  const [noteLinesMax, setNoteLinesMax] = useState<number>(() => {
+    const saved = localStorage.getItem('horizon_note_lines_max');
+    return saved ? Number(saved) : 3;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('horizon_note_lines_max', String(noteLinesMax));
+  }, [noteLinesMax]);
   
   // Settings & Preferences States
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
@@ -555,6 +563,23 @@ function App() {
     });
   };
 
+  const handleUpdateNote = (itemId: string, note: string) => {
+    updateActiveTrip((trip) => {
+      const targetDayIdx = activeDayIndex < trip.days.length ? activeDayIndex : 0;
+      const day = trip.days[targetDayIdx];
+      const updatedItinerary = day.itinerary.map((item) =>
+        item.id === itemId ? { ...item, note: note === '' ? undefined : note } : item
+      );
+      const updatedDays = trip.days.map((d, idx) =>
+        idx === targetDayIdx ? { ...d, itinerary: updatedItinerary } : d
+      );
+      return {
+        ...trip,
+        days: updatedDays,
+      };
+    });
+  };
+
   const handleUpdateStartDate = (date: string) => {
     updateActiveTrip((trip) => {
       // Parse start date and cascade each subsequent day
@@ -816,6 +841,8 @@ function App() {
         activeTrip={activeTrip}
         onImportTrip={handleImportTrip}
         onResetApp={handleResetApp}
+        noteLinesMax={noteLinesMax}
+        onNoteLinesMaxChange={setNoteLinesMax}
       />
 
       {/* Side Control Panel */}
@@ -845,6 +872,7 @@ function App() {
           onLoadDemoTrip={handleLoadDemoTrip}
         />
 
+
         {/* Panels Content */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}>
           {activeTab === 'pins' ? (
@@ -872,6 +900,7 @@ function App() {
               onRemoveFromItinerary={handleRemoveFromItinerary}
               onSelectLocation={setActiveLocation}
               onUpdateLockedArrivalTime={handleUpdateLockedArrivalTime}
+              onUpdateNote={handleUpdateNote}
               tripDate={activeTrip?.days?.[0]?.date || ''}
               onUpdateTripDate={handleUpdateStartDate}
               days={activeTrip?.days || []}
@@ -881,6 +910,7 @@ function App() {
               onRemoveDay={handleRemoveDay}
               onZoomToTrip={() => zoomToTripRef.current?.()}
               canZoom={savedLocations.length > 0}
+              noteLinesMax={noteLinesMax}
               onAddToItinerary={(locId) => handleAddToItinerary(locId, activeDayIndex)}
               onInsertAtItinerary={(locId, idx) => handleInsertAtItinerary(locId, idx, activeDayIndex)}
               onLoadDemoTrip={handleLoadDemoTrip}

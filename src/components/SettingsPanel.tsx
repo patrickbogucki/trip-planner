@@ -16,6 +16,8 @@ interface SettingsPanelProps {
   activeTrip: Trip;
   onImportTrip: (trip: Trip) => void;
   onResetApp: () => void;
+  noteLinesMax: number;
+  onNoteLinesMaxChange: (lines: number) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -32,6 +34,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   activeTrip,
   onImportTrip,
   onResetApp,
+  noteLinesMax,
+  onNoteLinesMaxChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,6 +153,23 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <option value="transit">Transit</option>
             <option value="walking">Walking</option>
             <option value="bicycle">Bicycling</option>
+          </select>
+        </div>
+
+        {/* Note Display Limit Section */}
+        <div className="settings-section">
+          <h3>Note Display Limit</h3>
+          <div className="settings-description">
+            Max visible lines for expanded note textareas before scrolling.
+          </div>
+          <select
+            className="settings-select"
+            value={noteLinesMax}
+            onChange={(e) => onNoteLinesMaxChange(Number(e.target.value))}
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+              <option key={n} value={n}>{n} {n === 1 ? 'line' : 'lines'}</option>
+            ))}
           </select>
         </div>
 

@@ -99,28 +99,32 @@ export function generateDemoTrip(): Trip {
           durationHours: 0,
           durationMinutes: 45,
           commuteMode: 'walking' as CommuteMode,
-          lockedArrivalTime: '09:00'
+          lockedArrivalTime: '09:00',
+          note: 'Grab a New Orleans Iced Coffee.'
         },
         {
           id: `itin-${makeId()}`,
           locationId: `${tripId}-loc-eat-chelsea`,
           durationHours: 1,
           durationMinutes: 30,
-          commuteMode: 'walking' as CommuteMode
+          commuteMode: 'walking' as CommuteMode,
+          note: 'Meet Sarah at the main entrance by 10:15 AM.'
         },
         {
           id: `itin-${makeId()}`,
           locationId: `${tripId}-loc-attraction-highline`,
           durationHours: 2,
           durationMinutes: 0,
-          commuteMode: 'transit' as CommuteMode
+          commuteMode: 'transit' as CommuteMode,
+          note: 'Walk towards Hudson Yards. Photo stop at the Vessel.'
         },
         {
           id: `itin-${makeId()}`,
           locationId: `${tripId}-loc-landmark-esb`,
           durationHours: 1,
           durationMinutes: 30,
-          commuteMode: 'walking' as CommuteMode
+          commuteMode: 'walking' as CommuteMode,
+          note: 'Reservation Confirmation: #ESB-998231-X. Go to 86th Floor.'
         }
       ]
     },
@@ -135,28 +139,32 @@ export function generateDemoTrip(): Trip {
           durationHours: 1,
           durationMinutes: 0,
           commuteMode: 'transit' as CommuteMode,
-          lockedArrivalTime: '10:00'
+          lockedArrivalTime: '10:00',
+          note: 'Late check-out request confirmed for 12:00 PM.'
         },
         {
           id: `itin-${makeId()}`,
           locationId: `${tripId}-loc-landmark-moma`,
           durationHours: 2,
           durationMinutes: 30,
-          commuteMode: 'walking' as CommuteMode
+          commuteMode: 'walking' as CommuteMode,
+          note: 'Tickets purchased. Remember to see the Starry Night on the 5th floor.'
         },
         {
           id: `itin-${makeId()}`,
           locationId: `${tripId}-loc-nature-centralpark`,
           durationHours: 2,
           durationMinutes: 0,
-          commuteMode: 'transit' as CommuteMode
+          commuteMode: 'transit' as CommuteMode,
+          note: 'Rent bicycles if the weather is nice.'
         },
         {
           id: `itin-${makeId()}`,
           locationId: `${tripId}-loc-eat-katz`,
           durationHours: 1,
           durationMinutes: 15,
-          commuteMode: 'walking' as CommuteMode
+          commuteMode: 'walking' as CommuteMode,
+          note: 'Bring cash! Order the Pastrami on Rye.'
         }
       ]
     },
@@ -171,7 +179,8 @@ export function generateDemoTrip(): Trip {
           durationHours: 3,
           durationMinutes: 0,
           commuteMode: 'walking' as CommuteMode,
-          lockedArrivalTime: '11:00'
+          lockedArrivalTime: '11:00',
+          note: 'Check out the design stores on Greene St.'
         },
         {
           id: `itin-${makeId()}`,

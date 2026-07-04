@@ -21,6 +21,7 @@ import {
   Check,
   GripVertical,
   Sparkles,
+  FileText,
   Lock,
   Unlock
 } from 'lucide-react';
@@ -54,6 +55,8 @@ interface ItineraryPanelProps {
   onInsertAtItinerary?: (locationId: string, index: number) => void;
   onSetItinerary?: (newItinerary: ItineraryItem[]) => void;
   onLoadDemoTrip?: () => void;
+  onUpdateNote: (id: string, note: string) => void;
+  noteLinesMax?: number;
   distanceUnit?: 'km' | 'mi';
 }
 
@@ -83,6 +86,8 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
   onAddToItinerary,
   onInsertAtItinerary,
   onLoadDemoTrip,
+  onUpdateNote,
+  noteLinesMax = 3,
   distanceUnit = 'km',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -100,6 +105,8 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
     }
   }, [itinerary, draggedIndex]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [activeNoteInputId, setActiveNoteInputId] = useState<string | null>(null);
+  const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [showSpendField, setShowSpendField] = useState<Record<string, boolean>>({});
   const [isAddingDestination, setIsAddingDestination] = useState(false);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
@@ -944,40 +951,122 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
                             )}
                           </div>
                         )}
+
+                        {/* Note textarea/button inside expanded view */}
+                        {!(item.note || activeNoteInputId === item.id) ? (
+                          <button
+                            type="button"
+                            className="add-note-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveNoteInputId(item.id);
+                            }}
+                            title="Add note"
+                          >
+                            <FileText size={12} />
+                            <span>Add Note</span>
+                          </button>
+                        ) : (
+                          <div className="itinerary-card-note-section" onClick={(e) => e.stopPropagation()}>
+                            <textarea
+                              ref={(el) => {
+                                if (el) {
+                                  el.style.height = 'auto';
+                                  el.style.height = el.scrollHeight + 'px';
+                                }
+                              }}
+                              className="itinerary-card-note-input"
+                              style={{ maxHeight: `${0.8 * 1.4 * noteLinesMax + 0.7}rem` }}
+                              value={item.note || ''}
+                              onChange={(e) => {
+                                onUpdateNote(item.id, e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = e.target.scrollHeight + 'px';
+                              }}
+                              onBlur={() => {
+                                setActiveNoteInputId(null);
+                                if (!item.note || item.note.trim() === '') {
+                                  onUpdateNote(item.id, '');
+                                }
+                              }}
+                              autoFocus={activeNoteInputId === item.id}
+                              placeholder="Add booking confirmation, reservation details, or notes..."
+                              rows={1}
+                            />
+                          </div>
+                        )}
                       </>
                     )}
 
                     {isCompact && (
-                      <div className="itinerary-compact-meta">
-                        {!isFirst && computedTimes[item.id]?.arrive && (
-                          <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                            {item.lockedArrivalTime && <Lock size={10} />}
-                            Arrive: {computedTimes[item.id].arrive}
-                          </span>
+                      <>
+                        <div className="itinerary-compact-meta">
+                          {!isFirst && computedTimes[item.id]?.arrive && (
+                            <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              {item.lockedArrivalTime && <Lock size={10} />}
+                              Arrive: {computedTimes[item.id].arrive}
+                            </span>
+                          )}
+                          {(computedTimes[item.id]?.conflictMinutes ?? 0) > 0 && (
+                            <span className="compact-time-badge" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <AlertTriangle size={10} />
+                              {computedTimes[item.id].conflictMinutes}m late
+                            </span>
+                          )}
+                          {(computedTimes[item.id]?.bufferMinutes ?? 0) > 0 && (
+                            <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <Check size={10} />
+                              {computedTimes[item.id].bufferMinutes}m to spare
+                            </span>
+                          )}
+                          {(item.durationHours > 0 || item.durationMinutes > 0) && (
+                            <span className="compact-duration-badge">
+                              <Clock size={11} />
+                              {item.durationHours > 0 ? `${item.durationHours}h` : ''}{item.durationMinutes > 0 ? `${item.durationMinutes}m` : ''}
+                            </span>
+                          )}
+                          {computedTimes[item.id]?.leave && (!isLast || isSpendActive) && (
+                            <span className="compact-time-badge" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }}>
+                              Leave: {computedTimes[item.id].leave}
+                            </span>
+                          )}
+                        </div>
+                        {item.note && expandedNoteId !== item.id && (
+                          <div 
+                            className="compact-note-badge-line"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedNoteId(item.id);
+                            }}
+                          >
+                            <span className="compact-duration-badge compact-note-badge full-width-note-badge" title="Click to view note">
+                              <FileText size={11} style={{ flexShrink: 0 }} />
+                              <span className="compact-note-full-text">{item.note}</span>
+                            </span>
+                          </div>
                         )}
-                        {(computedTimes[item.id]?.conflictMinutes ?? 0) > 0 && (
-                          <span className="compact-time-badge" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 15%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                            <AlertTriangle size={10} />
-                            {computedTimes[item.id].conflictMinutes}m late
-                          </span>
-                        )}
-                        {(computedTimes[item.id]?.bufferMinutes ?? 0) > 0 && (
-                          <span className="compact-time-badge" style={{ color: 'var(--success)', background: 'color-mix(in srgb, var(--success) 12%, transparent)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                            <Check size={10} />
-                            {computedTimes[item.id].bufferMinutes}m to spare
-                          </span>
-                        )}
-                        {(item.durationHours > 0 || item.durationMinutes > 0) && (
-                          <span className="compact-duration-badge">
-                            <Clock size={11} />
-                            {item.durationHours > 0 ? `${item.durationHours}h` : ''}{item.durationMinutes > 0 ? `${item.durationMinutes}m` : ''}
-                          </span>
-                        )}
-                        {computedTimes[item.id]?.leave && (!isLast || isSpendActive) && (
-                          <span className="compact-time-badge" style={{ color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }}>
-                            Leave: {computedTimes[item.id].leave}
-                          </span>
-                        )}
+                      </>
+                    )}
+
+                    {isCompact && expandedNoteId === item.id && item.note && (
+                      <div 
+                        className="compact-note-full-view" 
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="compact-note-header">
+                          <span>Note</span>
+                          <button 
+                            type="button" 
+                            className="compact-note-close" 
+                            onClick={() => setExpandedNoteId(null)}
+                            title="Close note"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                        <div className="compact-note-body">
+                          {item.note}
+                        </div>
                       </div>
                     )}
                   </div>
