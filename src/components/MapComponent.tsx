@@ -13,6 +13,57 @@ const formatPopupContent = (name: string) => {
   return displayName;
 };
 
+const getThemeColor = (token: '--accent' | '--accent-hover', fallback: string) => {
+  if (typeof window === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  return value || fallback;
+};
+
+const clampByte = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+
+const parseColor = (color: string) => {
+  const hex = color.trim();
+  if (hex.startsWith('#')) {
+    const normalized = hex.length === 4
+      ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+      : hex;
+    const value = normalized.slice(1);
+    if (value.length !== 6) return null;
+    return {
+      r: parseInt(value.slice(0, 2), 16),
+      g: parseInt(value.slice(2, 4), 16),
+      b: parseInt(value.slice(4, 6), 16),
+    };
+  }
+
+  const rgbMatch = color.match(/rgba?\(([^)]+)\)/);
+  if (!rgbMatch) return null;
+
+  const [r, g, b] = rgbMatch[1]
+    .split(',')
+    .slice(0, 3)
+    .map((part) => Number.parseFloat(part.trim()));
+
+  if ([r, g, b].some((channel) => Number.isNaN(channel))) return null;
+  return { r, g, b };
+};
+
+const toHex = ({ r, g, b }: { r: number; g: number; b: number }) =>
+  `#${[r, g, b].map((channel) => clampByte(channel).toString(16).padStart(2, '0')).join('')}`;
+
+const mixColor = (baseColor: string, mixWith: { r: number; g: number; b: number }, ratio: number) => {
+  const parsed = parseColor(baseColor);
+  if (!parsed) return baseColor;
+  const mix = Math.max(0, Math.min(1, ratio));
+  return toHex({
+    r: parsed.r * (1 - mix) + mixWith.r * mix,
+    g: parsed.g * (1 - mix) + mixWith.g * mix,
+    b: parsed.b * (1 - mix) + mixWith.b * mix,
+  });
+};
+
+const saturateRouteColor = (color: string) => mixColor(color, { r: 0, g: 163, b: 255 }, 0.35);
+
 const updateMarkerTooltip = (marker: L.Marker, name: string, isActive: boolean) => {
   const tooltipText = formatPopupContent(name);
   const currentTooltip = marker.getTooltip();
@@ -487,21 +538,39 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     // Draw paths for each route segment
     routes.forEach((route) => {
       const isTransit = route.mode === 'transit';
+      const accentColor = getThemeColor('--accent', '#418395');
+      const accentHoverColor = getThemeColor('--accent-hover', '#356a79');
+      const routeColor = saturateRouteColor(isTransit ? accentHoverColor : accentColor);
+      const routeOutline = isTransit ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.95)';
+      const routeDashArray = isTransit ? '10, 8' : undefined;
+      const routeOutlineDashArray = isTransit ? '12, 8' : undefined;
+      const routeOutlineLine = L.polyline(route.geometry, {
+        color: routeOutline,
+        weight: 10,
+        opacity: 0.95,
+        dashArray: routeOutlineDashArray,
+        lineCap: 'round',
+        lineJoin: 'round',
+      });
       const polyline = L.polyline(route.geometry, {
-        color: isTransit ? '#8b5cf6' : '#6366f1',
-        weight: 4,
-        opacity: 0.85,
-        dashArray: isTransit ? '6, 8' : undefined,
+        color: routeColor,
+        weight: 6,
+        opacity: 0.98,
+        dashArray: routeDashArray,
+        lineCap: 'round',
+        lineJoin: 'round',
       });
 
-      // Simple hover effects on route lines
       polyline.on('mouseover', () => {
-        polyline.setStyle({ weight: 6, opacity: 1.0 });
+        routeOutlineLine.setStyle({ weight: 12, opacity: 1.0 });
+        polyline.setStyle({ weight: 7, opacity: 1.0 });
       });
       polyline.on('mouseout', () => {
-        polyline.setStyle({ weight: 4, opacity: 0.85 });
+        routeOutlineLine.setStyle({ weight: 10, opacity: 0.95 });
+        polyline.setStyle({ weight: 6, opacity: 0.98 });
       });
 
+      polyGroup.addLayer(routeOutlineLine);
       polyGroup.addLayer(polyline);
     });
   }, [map, routes]);

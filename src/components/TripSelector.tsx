@@ -301,7 +301,7 @@ export const TripSelector: React.FC<TripSelectorProps> = ({
                       setIsMenuOpen(false);
                     }}
                   >
-                    <Sparkles size={14} style={{ color: '#8b5cf6' }} />
+                    <Sparkles size={14} style={{ color: 'var(--accent)' }} />
                     <span>Load Demo Trip</span>
                   </button>
                 </li>

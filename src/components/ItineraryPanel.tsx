@@ -600,7 +600,6 @@ export const ItineraryPanel: React.FC<ItineraryPanelProps> = ({
               type="button"
               className="btn btn-primary"
               onClick={onLoadDemoTrip}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#8b5cf6', borderColor: '#8b5cf6' }}
             >
               <Sparkles size={16} />
               <span>Load NYC Demo Trip</span>
