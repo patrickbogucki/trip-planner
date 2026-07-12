@@ -45,6 +45,7 @@ export interface Trip {
   id: string;
   name: string;
   createdAt: number;
+  updatedAt?: number;
   savedLocations: Location[];
   itinerary?: ItineraryItem[]; // legacy single-day fallback for migration
   date?: string; // legacy start-date fallback for migration

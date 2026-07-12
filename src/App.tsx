@@ -3,7 +3,7 @@ import { PinnedPanel } from './components/PinnedPanel';
 import { FloatingSearch } from './components/FloatingSearch';
 import { ItineraryPanel } from './components/ItineraryPanel';
 import { MapComponent } from './components/MapComponent';
-import { TripSelector } from './components/TripSelector';
+import { TripsPanel } from './components/TripsPanel';
 import { MiniSidebar } from './components/MiniSidebar';
 import { SettingsPanel } from './components/SettingsPanel';
 import type { Location, ItineraryItem, RouteSegment, CommuteMode, Trip, LocationCategory, TripDay } from './types';
@@ -49,7 +49,7 @@ const migrateLegacyStartTime = (trip: Trip): Trip => ({
 });
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'pins' | 'itinerary'>('itinerary');
+  const [activeTab, setActiveTab] = useState<'trips' | 'pins' | 'itinerary'>('trips');
   const [noteLinesMax, setNoteLinesMax] = useState<number>(() => {
     const saved = localStorage.getItem('horizon_note_lines_max');
     return saved ? Number(saved) : 3;
@@ -243,7 +243,7 @@ function App() {
   // Helper function to update the active trip safely
   const updateActiveTrip = (updater: (trip: Trip) => Trip) => {
     setTrips((prev) =>
-      prev.map((t) => (t.id === activeTripId ? updater(t) : t))
+      prev.map((t) => (t.id === activeTripId ? { ...updater(t), updatedAt: Date.now() } : t))
     );
   };
 
@@ -684,6 +684,7 @@ function App() {
           return {
             ...t,
             days: [...t.days, newDay],
+            updatedAt: Date.now(),
           };
         }
         return t;
@@ -721,6 +722,7 @@ function App() {
           return {
             ...t,
             days: updatedDays,
+            updatedAt: Date.now(),
           };
         }
         return t;
@@ -750,6 +752,7 @@ function App() {
       id: `trip-${Date.now()}`,
       name,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       savedLocations: [],
       days: [
         {
@@ -766,7 +769,7 @@ function App() {
   };
 
   const handleLoadDemoTrip = () => {
-    const demoTrip = generateDemoTrip();
+    const demoTrip = { ...generateDemoTrip(), updatedAt: Date.now() };
     setTrips((prev) => [...prev, demoTrip]);
     setActiveTripId(demoTrip.id);
     setActiveDayIndex(0);
@@ -775,8 +778,31 @@ function App() {
 
   const handleRenameTrip = (id: string, newName: string) => {
     setTrips((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, name: newName } : t))
+      prev.map((t) => (t.id === id ? { ...t, name: newName, updatedAt: Date.now() } : t))
     );
+  };
+
+  const handleDuplicateTrip = (id: string) => {
+    const tripToCopy = trips.find((t) => t.id === id);
+    if (!tripToCopy) return;
+
+    const newTrip: Trip = {
+      ...tripToCopy,
+      id: `trip-copy-${Date.now()}`,
+      name: `${tripToCopy.name} (Copy)`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      days: tripToCopy.days.map((day) => ({
+        ...day,
+        id: `day-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        itinerary: day.itinerary.map((item) => ({
+          ...item,
+          id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        })),
+      })),
+    };
+
+    setTrips((prev) => [...prev, newTrip]);
   };
 
   const handleDeleteTrip = (id: string) => {
@@ -795,11 +821,12 @@ function App() {
   };
 
   const handleImportTrip = (importedTrip: Trip) => {
+    const tripWithTime = { ...importedTrip, updatedAt: Date.now() };
     setTrips((prev) => {
-      if (prev.some((t) => t.id === importedTrip.id)) {
-        return prev.map((t) => (t.id === importedTrip.id ? importedTrip : t));
+      if (prev.some((t) => t.id === tripWithTime.id)) {
+        return prev.map((t) => (t.id === tripWithTime.id ? tripWithTime : t));
       }
-      return [...prev, importedTrip];
+      return [...prev, tripWithTime];
     });
     setActiveTripId(importedTrip.id);
     setActiveDayIndex(0);
@@ -846,7 +873,7 @@ function App() {
       />
 
       {/* Side Control Panel */}
-      <aside className="sidebar" style={{ paddingTop: '1.25rem' }}>
+      <aside className="sidebar" style={{ paddingTop: '1.5rem' }}>
         {storageError && (
           <div
             className="card"
@@ -861,21 +888,43 @@ function App() {
           </div>
         )}
 
-        {/* Trip Selector Widget */}
-        <TripSelector
-          trips={trips}
-          activeTripId={activeTripId}
-          onSelectTrip={handleSelectTrip}
-          onCreateTrip={handleCreateTrip}
-          onRenameTrip={handleRenameTrip}
-          onDeleteTrip={handleDeleteTrip}
-          onLoadDemoTrip={handleLoadDemoTrip}
-        />
-
+        {/* Active Trip Title Header (Read-Only) */}
+        {activeTrip && activeTab !== 'trips' && (
+          <div className="trip-selector-container" style={{ borderBottom: 'none', paddingBottom: '0.25rem' }}>
+            <h1 style={{
+              fontFamily: "'Merriweather', Georgia, serif",
+              fontSize: '1.8rem',
+              fontWeight: 700,
+              margin: 0,
+              color: 'var(--title-color)',
+              whiteSpace: 'normal',
+              overflowWrap: 'break-word',
+              wordBreak: 'break-word',
+              lineHeight: 1.25
+            }}>
+              {activeTrip.name}
+            </h1>
+          </div>
+        )}
 
         {/* Panels Content */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginTop: '0.5rem' }}>
-          {activeTab === 'pins' ? (
+          {activeTab === 'trips' ? (
+            <TripsPanel
+              trips={trips}
+              activeTripId={activeTripId}
+              onSelectTrip={handleSelectTrip}
+              onCreateTrip={handleCreateTrip}
+              onRenameTrip={handleRenameTrip}
+              onDeleteTrip={handleDeleteTrip}
+              onDuplicateTrip={handleDuplicateTrip}
+              onLoadDemoTrip={handleLoadDemoTrip}
+              onSelectAndNavigateTrip={(id) => {
+                handleSelectTrip(id);
+                setActiveTab('itinerary');
+              }}
+            />
+          ) : activeTab === 'pins' ? (
             <PinnedPanel
               savedLocations={savedLocations}
               days={activeTrip?.days || []}
