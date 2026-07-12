@@ -172,7 +172,7 @@ export const PinnedPanel: React.FC<PinnedPanelProps> = ({
   return (
     <div className="tab-content" style={{ gap: '1rem' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Pinned Locations</h3>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-primary)' }}>Pinned Locations</h3>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
           Manage your saved destinations and schedule them into days. Use the floating search bar on the map to find and pin new places.
         </p>
@@ -181,7 +181,7 @@ export const PinnedPanel: React.FC<PinnedPanelProps> = ({
       {savedLocations.length === 0 ? (
         <div className="empty-state" style={{ marginTop: '2rem' }}>
           <MapPin className="empty-state-icon" />
-          <h3>No pinned locations yet</h3>
+          <h3 style={{ fontWeight: 500 }}>No pinned locations yet</h3>
           <p>Search for destinations using the search box on the map to pin them onto your trip board.</p>
         </div>
       ) : (

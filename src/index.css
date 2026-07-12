@@ -15,6 +15,7 @@
   --accent: #418395; /* Teal */
   --accent-light: rgba(65, 131, 149, 0.14);
   --accent-hover: #356a79;
+  --accent-dark: #2c5966;
   
   --success: #10b981;
   --success-light: #d1fae5;
@@ -44,6 +45,7 @@
   --mini-sidebar-width: 68px;
   --side-panel-width: 420px;
   --side-panel-min-width: 380px;
+  --title-color: #334155;
 }
 
 /* When system prefers dark, and user has not explicitly set light mode */
@@ -62,6 +64,7 @@
     --accent: #5ca4b8; /* Light Teal */
     --accent-light: rgba(92, 164, 184, 0.18);
     --accent-hover: #4d9cb1;
+    --accent-dark: #418395;
     
     --success: #34d399;
     --success-light: rgba(52, 211, 153, 0.15);
@@ -79,6 +82,7 @@
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.45), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+    --title-color: #cbd5e1;
   }
 }
 
@@ -97,6 +101,7 @@
   --accent: #5ca4b8; /* Light Teal */
   --accent-light: rgba(92, 164, 184, 0.18);
   --accent-hover: #4d9cb1;
+  --accent-dark: #418395;
   
   --success: #34d399;
   --success-light: rgba(52, 211, 153, 0.15);
@@ -114,6 +119,7 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.45), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --title-color: #cbd5e1;
 }
 
 /* Global Resets */
@@ -127,7 +133,7 @@ html, body {
   width: 100%;
   height: 100%;
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 15.2px; /* Reduced from 16px to globally scale all rem fonts down by 0.05rem */
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
@@ -260,7 +266,7 @@ h1, h2, h3, h4, h5, h6 {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 1.25rem;
+  padding: 1.25rem 1.5rem 1.5rem 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -484,7 +490,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .saved-item-title {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.95rem;
   color: var(--text-primary);
   white-space: nowrap;
@@ -593,7 +599,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .itinerary-card-compact .itinerary-card-title {
-  font-size: 0.875rem;
+  font-family: 'Josefin Sans', var(--font-sans);
+  font-weight: 500;
+  font-size: 0.95rem;
   margin-bottom: 0;
 }
 
@@ -689,8 +697,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .itinerary-card-title {
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-family: 'Josefin Sans', var(--font-sans);
+  font-weight: 500;
+  font-size: 1.05rem;
   margin-bottom: 0.25rem;
 }
 
@@ -955,7 +964,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Trip Selector Widget */
 .trip-selector-container {
-  padding: 0 1rem 0.75rem 1rem;
+  position: relative;
+  padding: 0 1.5rem 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -964,49 +974,55 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  position: relative;
 }
 
 .trip-dropdown-custom-wrapper {
   flex: 1;
+  width: 100%;
   position: relative;
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 .trip-dropdown-trigger {
   display: flex;
   align-items: center;
-  width: 100%;
-  min-height: 2.25rem;
+  width: calc(100% + 2rem);
+  min-width: 0;
+  min-height: unset;
   height: auto;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background-color: transparent;
+  border: none;
   border-radius: var(--radius-md);
-  padding: 0.25rem 0.75rem;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  font-weight: 600;
+  padding: 0.5rem 2.25rem 0.5rem 1rem;
+  margin-left: -1rem;
+  font-family: 'Josefin Sans', var(--font-sans);
+  font-size: 1.8rem;
+  font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+  transition: all var(--transition-fast);
   outline: none;
 }
 
 .trip-dropdown-trigger:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--border-focus);
+  outline: none;
+  background-color: var(--bg-primary);
+  color: var(--accent);
 }
 
 .trip-dropdown-trigger:hover {
   background-color: var(--bg-primary);
-  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .trip-icon {
-  color: var(--accent);
-  margin-right: 0.5rem;
-  flex-shrink: 0;
+  display: none;
 }
 
 .trip-dropdown-current-name {
@@ -1019,12 +1035,14 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .trip-name-text {
-  font-size: 0.9rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.2;
+  font-size: 1.8rem;
+  font-family: 'Josefin Sans', var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.25;
 }
 
 .trip-date-range-text {
@@ -1143,12 +1161,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .trip-item-name-text {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-family: 'Josefin Sans', var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .trip-item-date-range {
@@ -1162,14 +1181,33 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .trip-options-menu-container {
-  position: relative;
+  position: absolute;
+  top: 0;
+  right: 1.5rem;
+  z-index: 10;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .trip-menu-trigger-btn {
-  width: 2.25rem !important;
-  height: 2.25rem !important;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.trip-menu-trigger-btn:hover {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .trip-actions-dropdown-menu {
@@ -1696,7 +1734,7 @@ h1, h2, h3, h4, h5, h6 {
 .saved-item-days-dropdown-menu .dropdown-header {
   font-family: var(--font-sans);
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   color: var(--text-muted);
   letter-spacing: 0.05em;
@@ -2741,4 +2779,164 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--bg-secondary) !important;
   box-shadow: none !important;
   border: 1px solid var(--border-color) !important;
+}
+
+/* Trip Card Actions Hover Effect */
+.trip-card {
+  position: relative;
+}
+
+.trip-card-actions {
+  position: absolute;
+  right: 0;
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+}
+
+.trip-card:hover .trip-card-actions,
+.trip-card:focus-within .trip-card-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.trip-card-updated-at {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+}
+
+.trip-card:hover .trip-card-updated-at,
+.trip-card:focus-within .trip-card-updated-at {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Josefin Sans font for all headers and labels in the side panels */
+.sidebar h1,
+.sidebar h2,
+.sidebar h3,
+.sidebar h4,
+.sidebar h5,
+.sidebar h6,
+.sidebar label,
+.sidebar .input-label,
+.sidebar .trip-stat-label,
+.sidebar .trip-date-label,
+.sidebar .day-tab-label,
+.sidebar .dropdown-day-label,
+.sidebar .settings-file-label,
+.settings-panel h1,
+.settings-panel h2,
+.settings-panel h3,
+.settings-panel h4,
+.settings-panel h5,
+.settings-panel h6,
+.settings-panel label,
+.settings-panel .input-label,
+.settings-panel .settings-file-label {
+  font-family: 'Josefin Sans', var(--font-sans);
+}
+
+/* Custom styling and hover states for the Trip Load Button */
+.trip-load-btn {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--accent) !important;
+  transition: all var(--transition-fast) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trip-load-btn:hover {
+  background: var(--accent-light) !important;
+  color: var(--accent-hover) !important;
+  transform: translateX(3px);
+}
+
+/* Custom styling and hover states for the Trip Card Menu Button (Three Dots) */
+.trip-card-menu-btn {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  transition: all var(--transition-fast) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+
+.trip-card-menu-btn:hover {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Trip Card Actions Dropdown Menu */
+.trip-card-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 0.25rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 120px;
+}
+
+.trip-card-menu-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background var(--transition-fast);
+}
+
+.trip-card-menu-item:hover {
+  background: var(--bg-primary);
+}
+
+.trip-card-menu-item.danger {
+  color: var(--danger);
+}
+
+.trip-card-menu-item.danger:hover {
+  background: var(--danger-light);
+}
+
+.trip-card-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.trip-card-menu-item:disabled:hover {
+  background: transparent;
 }

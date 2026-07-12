@@ -1,8 +1,8 @@
-import { Compass, Calendar, MapPin, Settings } from 'lucide-react';
+import { Compass, Calendar, MapPin, Settings, Briefcase } from 'lucide-react';
 
 interface MiniSidebarProps {
-  activeTab: 'itinerary' | 'pins';
-  onTabChange: (tab: 'itinerary' | 'pins') => void;
+  activeTab: 'trips' | 'itinerary' | 'pins';
+  onTabChange: (tab: 'trips' | 'itinerary' | 'pins') => void;
   onSettingsClick: () => void;
   isSettingsOpen: boolean;
 }
@@ -20,6 +20,16 @@ export const MiniSidebar: React.FC<MiniSidebarProps> = ({
         <div className="mini-sidebar-logo" title="Horizon" style={{ marginBottom: '0.75rem' }}>
           <Compass className="brand-icon" />
         </div>
+
+        <button
+          className={`mini-sidebar-btn ${activeTab === 'trips' && !isSettingsOpen ? 'active' : ''}`}
+          onClick={() => onTabChange('trips')}
+          title="Trips"
+          aria-label="Trips"
+        >
+          <Briefcase size={20} />
+          <span>Trips</span>
+        </button>
 
         <button
           className={`mini-sidebar-btn ${activeTab === 'itinerary' && !isSettingsOpen ? 'active' : ''}`}
